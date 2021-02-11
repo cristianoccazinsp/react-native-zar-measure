@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		4E1FD3BC25A61DC400F8318D /* ZarMeasureViewSW.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E1FD3BA25A61DC300F8318D /* ZarMeasureViewSW.swift */; };
+		4E1FD3BC25A61DC400F8318D /* CTZarMeasureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E1FD3BA25A61DC300F8318D /* CTZarMeasureView.swift */; };
 		6B02B4FA22B8C1E3006A6FDD /* ZarMeasureViewManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 6B02B4F922B8C1E3006A6FDD /* ZarMeasureViewManager.m */; };
 		B3E7B58A1CC2AC0600A0062D /* ZarMeasureView.m in Sources */ = {isa = PBXBuildFile; fileRef = B3E7B5891CC2AC0600A0062D /* ZarMeasureView.m */; };
 /* End PBXBuildFile section */
@@ -27,7 +27,7 @@
 /* Begin PBXFileReference section */
 		134814201AA4EA6300B7C361 /* libZarMeasureView.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libZarMeasureView.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		4E1FD3B925A61DC300F8318D /* ZarMeasureView-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ZarMeasureView-Bridging-Header.h"; sourceTree = "<group>"; };
-		4E1FD3BA25A61DC300F8318D /* ZarMeasureViewSW.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ZarMeasureViewSW.swift; sourceTree = "<group>"; };
+		4E1FD3BA25A61DC300F8318D /* CTZarMeasureView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CTZarMeasureView.swift; sourceTree = "<group>"; };
 		6B02B4F822B8C1DC006A6FDD /* ZarMeasureViewManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZarMeasureViewManager.h; sourceTree = "<group>"; };
 		6B02B4F922B8C1E3006A6FDD /* ZarMeasureViewManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ZarMeasureViewManager.m; sourceTree = "<group>"; };
 		B3E7B5881CC2AC0600A0062D /* ZarMeasureView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZarMeasureView.h; sourceTree = "<group>"; };
@@ -59,7 +59,7 @@
 				B3E7B5881CC2AC0600A0062D /* ZarMeasureView.h */,
 				B3E7B5891CC2AC0600A0062D /* ZarMeasureView.m */,
 				6B02B4F822B8C1DC006A6FDD /* ZarMeasureViewManager.h */,
-				4E1FD3BA25A61DC300F8318D /* ZarMeasureViewSW.swift */,
+				4E1FD3BA25A61DC300F8318D /* CTZarMeasureView.swift */,
 				6B02B4F922B8C1E3006A6FDD /* ZarMeasureViewManager.m */,
 				134814211AA4EA7D00B7C361 /* Products */,
 				4E1FD3B925A61DC300F8318D /* ZarMeasureView-Bridging-Header.h */,
@@ -126,7 +126,7 @@
 			files = (
 				B3E7B58A1CC2AC0600A0062D /* ZarMeasureView.m in Sources */,
 				6B02B4FA22B8C1E3006A6FDD /* ZarMeasureViewManager.m in Sources */,
-				4E1FD3BC25A61DC400F8318D /* ZarMeasureViewSW.swift in Sources */,
+				4E1FD3BC25A61DC400F8318D /* CTZarMeasureView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

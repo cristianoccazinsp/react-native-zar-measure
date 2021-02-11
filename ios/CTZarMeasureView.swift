@@ -2,7 +2,7 @@ import Foundation
 import UIKit
 
 
-@objc public class ZarMeasureViewSW: UIView {
+@objc public class CTZarMeasureView: UIView {
 
     // MARK: Public properties
 
@@ -32,10 +32,10 @@ import UIKit
         sceneView.text = "Not implemented."
         sceneView.textColor = UIColor.black
         self.backgroundColor = UIColor.white
-        
+
         add(view: sceneView)
      }
-    
+
 
     // MARK: Public methods
 

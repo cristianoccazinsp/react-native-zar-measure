@@ -1,8 +1,9 @@
 #import <React/RCTImageLoader.h>
 #import "ZarMeasureView.h"
 
+
 @implementation ZarMeasureView {
-    ZarMeasureViewSW *_view;
+    CTZarMeasureView *_view;
     __weak RCTBridge *_bridge;
 }
 
@@ -24,7 +25,7 @@
 {
     self = [super initWithFrame:frame];
 
-    _view = [[ZarMeasureViewSW alloc] initWithFrame:frame];
+    _view = [[CTZarMeasureView alloc] initWithFrame:frame];
 
     [self addSubview:_view];
 
@@ -42,10 +43,7 @@
 
 - (void)dealloc
 {
-    if(_cancel != nil){
-        _cancel();
-        _cancel = nil;
-    }
+    
 }
 
 - (void)willMoveToSuperview:(nullable UIView *)newSuperview;

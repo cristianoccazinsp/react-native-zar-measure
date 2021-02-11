@@ -5,20 +5,22 @@ const platform = Platform.OS;
 const notImplementedView = <Text>Not implemented.</Text>;
 
 type Props = {
-  //onImageLoaded?: () => void;
+
+  /** Test documentation for prop **/
+  test?: () => void;
   style: ViewStyle;
 }
 
 export default class ZarMeasureView extends React.Component<Props>{
 
   render(){
-    return {
-      platform == 'ios' ?
-        <NativeZarMeasureView
-          {...this.props}
-        />
-      : notImplementedView
-    }
+
+    return platform == 'ios' ?
+      <NativeZarMeasureView
+        {...this.props}
+      />
+    : notImplementedView;
+  }
 }
 
 const NativeZarMeasureView = requireNativeComponent("ZarMeasureView", ZarMeasureView, {

@@ -3,8 +3,8 @@
 
 #if __has_include("ZarMeasureView-Swift.h")
 #import "ZarMeasureView-Swift.h"
-#elif __has_include("react_native_zarmeasure_view-Swift.h")
-#import "react_native_zarmeasure_view-Swift.h"
+#elif __has_include("react_native_zar_measure-Swift.h")
+#import "react_native_zar_measure-Swift.h"
 #endif
 
 
