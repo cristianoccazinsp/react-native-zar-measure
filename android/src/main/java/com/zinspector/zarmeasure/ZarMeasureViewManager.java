@@ -9,7 +9,6 @@ import com.facebook.react.uimanager.events.RCTEventEmitter;
 
 
 public class ZarMeasureViewManager extends SimpleViewManager<ZarMeasureView> {
-    public static final String REACT_CLASS = "ZarMeasureView";
 
     ReactApplicationContext mCallerContext;
 
@@ -19,7 +18,7 @@ public class ZarMeasureViewManager extends SimpleViewManager<ZarMeasureView> {
 
     @Override
     public String getName() {
-        return REACT_CLASS;
+        return "ZarMeasureView";
     }
 
     @Override
