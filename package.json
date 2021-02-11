@@ -1,0 +1,35 @@
+{
+  "name": "react-native-zar-measure",
+  "title": "React Native ZAR Measure",
+  "version": "0.0.1",
+  "description": "React Native bindings for AR and Camera dimensions measurement.",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"No tests specified\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cristianoccazinsp/react-native-zar-measure.git",
+    "baseUrl": "https://github.com/cristianoccazinsp/react-native-zar-measure"
+  },
+  "keywords": [
+    "react-native"
+  ],
+  "author": {
+    "name": "Cristiano Coelho (zInspector)",
+    "email": "cristiano@zinspector.com",
+    "url": "https://github.com/cristianocca"
+  },
+  "homepage": "https://github.com/cristianoccazinsp/react-native-zar-measure",
+  "license": "MIT",
+  "licenseFilename": "LICENSE",
+  "readmeFilename": "README.md",
+  "peerDependencies": {
+    "react": "^16.13.0",
+    "react-native": ">=0.62.0"
+  },
+  "devDependencies": {
+    "react": "^16.13.0",
+    "react-native": "^0.62.2"
+  }
+}
