@@ -43,10 +43,11 @@
 
 - (void)layoutSubviews
 {
+    [super layoutSubviews];
+    
     if(_view != nil){
         float rootViewWidth = self.frame.size.width;
         float rootViewHeight = self.frame.size.height;
-
         _view.frame = CGRectMake(0, 0, rootViewWidth, rootViewHeight);
     }
 }

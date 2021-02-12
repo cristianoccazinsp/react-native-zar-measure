@@ -5,21 +5,38 @@ import { requireNativeComponent, NativeModules, ViewStyle, Platform,
 
 
 const ZarMeasureModule = NativeModules.ZarMeasureViewManager || NativeModules.ZarMeasureModule;
-
+const Consts = ZarMeasureModule.getConstants();
 
 type Props = {
 
   style: ViewStyle,
 
-  /** {title, message, buttonPositive, buttonNegative} **/
+  /** Android permissions rationale */
   androidCameraPermissionOptions: {
     title: string,
     message: striing,
     buttonPositive: string,
     buttonNegative: string
   },
+
+  /** View to render while auth is pending */
   pendingAuthorizationView: React.Component,
-  notAuthorizedView: React.Component
+
+  /** View to render if auth is not given */
+  notAuthorizedView: React.Component,
+
+  /**
+   * Callback fired when authorization has changed
+   *
+   * authorized: true if auth was given, false otherwise
+  */
+  onStatusChange(authorized): void,
+
+  /** Fired when the camera is ready */
+  onCameraReady():void,
+
+  /** Fired if there was a camera mount error */
+  onMountError(err: { message: string }): void,
 }
 
 export const androidCameraPermissionOptions = {
@@ -30,12 +47,19 @@ export const androidCameraPermissionOptions = {
 }
 
 
+const dummy = () => {};
+
 export default class ZarMeasureView extends React.Component<Props>{
   static defaultProps = {
     androidCameraPermissionOptions: androidCameraPermissionOptions,
     pendingAuthorizationView: <SafeAreaView><Text>Loading...</Text></SafeAreaView>,
-    notAuthorizedView: <SafeAreaView><Text>Not Authorized</Text></SafeAreaView>
+    notAuthorizedView: <SafeAreaView><Text>Not Authorized</Text></SafeAreaView>,
+    onStatusChange: dummy,
+    onCameraReady: dummy,
+    onMountError: dummy
   }
+
+  static Consts = Consts
 
   constructor(props){
     super(props);
