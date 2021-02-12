@@ -51,7 +51,6 @@ import ARKit
         
         // Adds the handler to the scene view
         sceneView.addGestureRecognizer(tapRecognizer)
-        sceneView.frame = frame
         
         add(view: sceneView)
         
@@ -76,7 +75,8 @@ import ARKit
         
         // Create a session configuration
         let configuration = ARWorldTrackingConfiguration()
-
+        //sceneView.preferredFramesPerSecond = 30
+        
         // Run the view's session
         sceneView.session.run(configuration)
         
@@ -104,25 +104,18 @@ import ARKit
         let sphere = newSphere(at: vector)
         
         // Checks if there is at least one sphere in the array
-        if let first = spheres.first {
+        if let last = spheres.last {
             
             // Adds a second sphere to the array
             spheres.append(sphere)
-            measurementLabel.text = "\(sphere.distance(to: first)) m"
+            measurementLabel.text = "\(sphere.distance(to: last)) m"
             
-            // If more that two are present...
-            if spheres.count > 2 {
-                
-                // Iterate through spheres array
-                for sphere in spheres {
-                    
-                    // Remove all spheres
-                    sphere.removeFromParentNode()
-                }
-                
-                // Remove extraneous spheres
-                spheres = [spheres[2]]
+            // remove extra spheres
+            while spheres.count > 2 {
+                let f = spheres.removeFirst()
+                f.removeFromParentNode()
             }
+            
         
         // If there are no spheres...
         } else {
@@ -130,12 +123,14 @@ import ARKit
             spheres.append(sphere)
         }
         
-        // Iterate through spheres array
-        for sphere in spheres {
-            
-            // Add all spheres in the array
-            self.sceneView.scene.rootNode.addChildNode(sphere)
-        }
+        self.sceneView.scene.rootNode.addChildNode(sphere)
+        
+//        // Iterate through spheres array
+//        for sphere in spheres {
+//
+//            // Add all spheres in the array
+//            self.sceneView.scene.rootNode.addChildNode(sphere)
+//        }
     }
     
     // Creates measuring endpoints
@@ -184,12 +179,11 @@ import ARKit
 
     public override func layoutSubviews() {
         super.layoutSubviews()
-        sceneView.frame = frame
         sceneView.setNeedsDisplay()
     }
 }
 
-// review if needed
+// This is needed so the view uses the parent's space
 private extension UIView {
     func add(view: UIView) {
         view.translatesAutoresizingMaskIntoConstraints = false
