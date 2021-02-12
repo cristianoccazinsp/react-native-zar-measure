@@ -1,13 +1,13 @@
 package com.zinspector.zarmeasure;
 
 import android.app.ActivityManager;
-
-
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableMap;
+import java.util.HashMap;
+import java.util.Map;
 
 
 public class ZarMeasureModule extends ReactContextBaseJavaModule {
@@ -24,10 +24,18 @@ public class ZarMeasureModule extends ReactContextBaseJavaModule {
         return "ZarMeasureModule";
     }
 
+    @Override
+    public Map<String, Object> getConstants() {
+        final Map<String, Object> constants = new HashMap<>();
+
+        constants.put("AR_SUPPORTED", false);
+
+        return constants;
+    }
 
     @ReactMethod
     public void test(Promise promise) {
-        promise.resolve("TEST!");
+        promise.resolve("TEST method");
     }
 
 }

@@ -12,6 +12,9 @@
 
 @interface ZarMeasureView : RCTView
 
+@property (nonatomic, copy) RCTDirectEventBlock onCameraReady;
+@property (nonatomic, copy) RCTDirectEventBlock onMountError;
+
 - (instancetype)initWithBridge:(RCTBridge *)bridge;
 
 @end

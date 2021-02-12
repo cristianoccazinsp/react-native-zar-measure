@@ -2,6 +2,7 @@
 #import "ZarMeasureView.h"
 #import <UIKit/UIKit.h>
 #import <AVFoundation/AVFoundation.h>
+#import <ARKit/ARKit.h>
 
 
 @implementation ZarMeasureViewManager
@@ -9,12 +10,41 @@
 RCT_EXPORT_MODULE();
 
 
-@synthesize bridge = _bridge;
+//@synthesize bridge = _bridge;
+
+bool _supportsAR = NO;
+
+
+#pragma mark - initialization
+
++ (BOOL)requiresMainQueueSetup {
+    return YES;
+}
+
+- (NSDictionary *)constantsToExport
+{
+    if (@available(iOS 11.0, *)) {
+        _supportsAR = ARConfiguration.isSupported;
+    } else {
+        _supportsAR = NO;
+    }
+    
+    return @{ @"AR_SUPPORTED": @(_supportsAR)};
+}
 
 - (UIView *)view
 {
     return [[ZarMeasureView alloc] initWithBridge:self.bridge];
 }
+
+
+#pragma mark - props
+
+RCT_EXPORT_VIEW_PROPERTY(onCameraReady, RCTDirectEventBlock);
+RCT_EXPORT_VIEW_PROPERTY(onMountError, RCTDirectEventBlock);
+
+
+#pragma mark - methods
 
 RCT_EXPORT_METHOD(checkVideoAuthorizationStatus:(RCTPromiseResolveBlock)resolve
                   reject:(__unused RCTPromiseRejectBlock)reject) {
@@ -30,5 +60,6 @@ RCT_EXPORT_METHOD(checkVideoAuthorizationStatus:(RCTPromiseResolveBlock)resolve
         resolve(@(granted));
     }];
 }
+
 
 @end

@@ -7,6 +7,9 @@
     __weak RCTBridge *_bridge;
 }
 
+
+#pragma mark - initialization
+
 - (dispatch_queue_t)methodQueue
 {
     return dispatch_get_main_queue();
@@ -25,19 +28,27 @@
 {
     self = [super initWithFrame:frame];
 
-    _view = [[CTZarMeasureView alloc] initWithFrame:frame];
-
-    [self addSubview:_view];
-
+    if (@available(iOS 11.0, *)) {
+        _view = [[CTZarMeasureView alloc] initWithFrame:frame];
+//        _view.onReady = self.onCameraReady;
+//        _view.onMountError = self.onMountError;
+        
+        [self addSubview:_view];
+    } else {
+        _view = nil;
+    }
+    
     return self;
 }
 
 - (void)layoutSubviews
 {
-    float rootViewWidth = self.frame.size.width;
-    float rootViewHeight = self.frame.size.height;
+    if(_view != nil){
+        float rootViewWidth = self.frame.size.width;
+        float rootViewHeight = self.frame.size.height;
 
-    _view.frame = CGRectMake(0, 0, rootViewWidth, rootViewHeight);
+        _view.frame = CGRectMake(0, 0, rootViewWidth, rootViewHeight);
+    }
 }
 
 
@@ -51,10 +62,10 @@
     // cleanup on deallocate
     // cancel any request in progress
     if(newSuperview == nil){
-
     }
 
     [super willMoveToSuperview:newSuperview];
 }
+
 
 @end
