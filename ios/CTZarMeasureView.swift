@@ -36,20 +36,6 @@ import ARKit
     }
 
     private func commonInit() {
-        // Creates a background for the label
-        measurementLabel.frame = CGRect(x: 0, y: 0, width: frame.size.width, height: 100)
-        
-        // Makes the background white
-        measurementLabel.backgroundColor = .white
-        
-        // Sets some default text
-        measurementLabel.text = "0 inches"
-        
-        // Centers the text
-        measurementLabel.textAlignment = .center
-        
-        // Adds the text to the
-        add(view: measurementLabel)
         
         // Set the view's delegate
         sceneView.delegate = self
@@ -65,8 +51,28 @@ import ARKit
         
         // Adds the handler to the scene view
         sceneView.addGestureRecognizer(tapRecognizer)
+        sceneView.frame = frame
         
         add(view: sceneView)
+        
+        
+        // Creates a background for the label
+        measurementLabel.frame = CGRect(x: 0, y: 0, width: frame.size.width, height: frame.size.height)
+        
+        // Makes the background white
+        measurementLabel.backgroundColor = UIColor(white: 1, alpha: 0.0)
+        
+        // Sets some default text
+        measurementLabel.text = "0 m"
+        measurementLabel.textColor = .white
+        
+        // Centers the text
+        measurementLabel.textAlignment = .center
+        
+        // Adds the text to the
+        //add(view: measurementLabel)
+        add(view: measurementLabel)
+        
         
         // Create a session configuration
         let configuration = ARWorldTrackingConfiguration()
@@ -102,7 +108,7 @@ import ARKit
             
             // Adds a second sphere to the array
             spheres.append(sphere)
-            measurementLabel.text = "\(sphere.distance(to: first)) inches"
+            measurementLabel.text = "\(sphere.distance(to: first)) m"
             
             // If more that two are present...
             if spheres.count > 2 {
@@ -178,29 +184,28 @@ import ARKit
 
     public override func layoutSubviews() {
         super.layoutSubviews()
+        sceneView.frame = frame
+        sceneView.setNeedsDisplay()
     }
 }
 
 // review if needed
 private extension UIView {
     func add(view: UIView) {
-//        view.translatesAutoresizingMaskIntoConstraints = false
+        view.translatesAutoresizingMaskIntoConstraints = false
         addSubview(view)
-//        let views = ["view": view]
-//        let hConstraints = NSLayoutConstraint.constraints(withVisualFormat: "|[view]|", options: [], metrics: nil, views: views)
-//        let vConstraints = NSLayoutConstraint.constraints(withVisualFormat: "V:|[view]|", options: [], metrics: nil, views: views)
-//        self.addConstraints(hConstraints)
-//        self.addConstraints(vConstraints)
+        let views = ["view": view]
+        let hConstraints = NSLayoutConstraint.constraints(withVisualFormat: "|[view]|", options: [], metrics: nil, views: views)
+        let vConstraints = NSLayoutConstraint.constraints(withVisualFormat: "V:|[view]|", options: [], metrics: nil, views: views)
+        self.addConstraints(hConstraints)
+        self.addConstraints(vConstraints)
     }
 }
 
 extension SCNNode {
     
-    // Gets distance between two SCNNodes
+    // Gets distance between two SCNNodes in meters
     func distance(to destination: SCNNode) -> CGFloat {
-        
-        // Meters to inches conversion
-        let inches: Float = 39.3701
         
         // Difference between x-positions
         let dx = destination.position.x - position.x
@@ -215,6 +220,6 @@ extension SCNNode {
         let meters = sqrt(dx*dx + dy*dy + dz*dz)
         
         // Returns inches
-        return CGFloat(meters * inches)
+        return CGFloat(meters)
     }
 }
