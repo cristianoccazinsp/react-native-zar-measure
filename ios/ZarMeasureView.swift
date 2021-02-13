@@ -5,12 +5,12 @@ import ARKit
 
 
 @available(iOS 11.0, *)
-@objc public class CTZarMeasureView: UIView, ARSCNViewDelegate, UIGestureRecognizerDelegate {
+@objc public class ZarMeasureView: UIView, ARSCNViewDelegate, UIGestureRecognizerDelegate, ARSessionDelegate {
     
 
     // MARK: Public properties
-//    @objc public var onReady: RCTDirectEventBlock? = nil
-//    @objc public var onMountError: RCTDirectEventBlock? = nil
+    @objc public var onReady: RCTDirectEventBlock? = nil
+    @objc public var onMountError: RCTDirectEventBlock? = nil
     
 
     // MARK: Private properties
@@ -33,6 +33,26 @@ import ARKit
 
     deinit {
         sceneView.session.pause()
+    }
+    
+    public override func willMove(toSuperview newSuperview: UIView?){
+        super.willMove(toSuperview: newSuperview)
+        
+        if(newSuperview == nil){
+            sceneView.session.pause()
+        }
+        else{
+            
+            // Create a session configuration
+            let configuration = ARWorldTrackingConfiguration()
+            //sceneView.preferredFramesPerSecond = 30
+            
+            // Run the view's session
+            sceneView.session.run(configuration)
+            
+            self.onReady?(nil)
+            
+        }
     }
 
     private func commonInit() {
@@ -72,15 +92,12 @@ import ARKit
         //add(view: measurementLabel)
         add(view: measurementLabel)
         
-        
-        // Create a session configuration
-        let configuration = ARWorldTrackingConfiguration()
-        //sceneView.preferredFramesPerSecond = 30
-        
-        // Run the view's session
-        sceneView.session.run(configuration)
-        
-        //self.onReady?(nil)
+        // set session listener
+        sceneView.session.delegate = self
+    }
+    
+    public func session(_ session: ARSession, didFailWithError error: Error) {
+        self.onMountError?(["message": error.localizedDescription])
     }
     
     @objc func handleTap(sender: UITapGestureRecognizer) {
@@ -125,12 +142,6 @@ import ARKit
         
         self.sceneView.scene.rootNode.addChildNode(sphere)
         
-//        // Iterate through spheres array
-//        for sphere in spheres {
-//
-//            // Add all spheres in the array
-//            self.sceneView.scene.rootNode.addChildNode(sphere)
-//        }
     }
     
     // Creates measuring endpoints
@@ -161,25 +172,12 @@ import ARKit
         return node
         
     }
-    
-
-//    public override func willMove(toSuperview newSuperview: UIView?){
-//        if(newSuperview == nil){
-//            sceneView.session.pause()
-//        }
-//        else{
-//            // Create a session configuration
-//            let configuration = ARWorldTrackingConfiguration()
-//
-//            // Run the view's session
-//            sceneView.session.run(configuration)
-//        }
-//        super.willMove(toSuperview: newSuperview)
-//    }
 
     public override func layoutSubviews() {
-        super.layoutSubviews()
+        sceneView.frame = CGRect(x: 0, y: 0, width: frame.size.width, height: frame.size.height)
         sceneView.setNeedsDisplay()
+        
+        super.layoutSubviews()
     }
 }
 

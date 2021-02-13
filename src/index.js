@@ -7,6 +7,7 @@ import { requireNativeComponent, NativeModules, ViewStyle, Platform,
 const ZarMeasureModule = NativeModules.ZarMeasureViewManager || NativeModules.ZarMeasureModule;
 const Consts = ZarMeasureModule.getConstants();
 
+
 type Props = {
 
   style: ViewStyle,
@@ -32,8 +33,11 @@ type Props = {
   */
   onStatusChange(authorized): void,
 
-  /** Fired when the camera is ready */
-  onCameraReady():void,
+  /** Fired when the component is is ready
+   *
+   * Note: ARKit does not provide a ready function, so onMountError may fire afterwards
+  */
+  onReady():void,
 
   /** Fired if there was a camera mount error */
   onMountError(err: { message: string }): void,
@@ -55,7 +59,7 @@ export default class ZarMeasureView extends React.Component<Props>{
     pendingAuthorizationView: <SafeAreaView><Text>Loading...</Text></SafeAreaView>,
     notAuthorizedView: <SafeAreaView><Text>Not Authorized</Text></SafeAreaView>,
     onStatusChange: dummy,
-    onCameraReady: dummy,
+    onReady: dummy,
     onMountError: dummy
   }
 
@@ -113,6 +117,10 @@ export default class ZarMeasureView extends React.Component<Props>{
     return permGranted;
   }
 
+  onMountError = (evt) => {
+    this.props.onMountError({message: evt.nativeEvent.message});
+  }
+
   render(){
     let {authChecked, authorized} = this.state;
 
@@ -123,9 +131,11 @@ export default class ZarMeasureView extends React.Component<Props>{
       return this.props.notAuthorizedView;
     }
 
+    let {onMountError, ...props} = this.props;
     return (
       <NativeZarMeasureView
-        {...this.props}
+        {...props}
+        onMountError={this.onMountError}
       />
     )
   }
