@@ -136,7 +136,7 @@ import ARKit
         let location = sender.location(in: sceneView)
         
         // Searches for real world objects such as surfaces and filters out flat surfaces
-        let hitTest = sceneView.hitTest(location, types: [ARHitTestResult.ResultType.featurePoint])
+        let hitTest = sceneView.hitTest(location, types: [.featurePoint])
         
         // Assigns the most accurate result to a constant if it is non-nil
         guard let result = hitTest.last else {
