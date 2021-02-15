@@ -4,7 +4,7 @@ import SceneKit
 import ARKit
 
 
-@available(iOS 11.0, *)
+@available(iOS 11.3, *)
 @objc public class ZarMeasureView: UIView, ARSCNViewDelegate, UIGestureRecognizerDelegate, ARSessionDelegate {
     
 
@@ -72,6 +72,8 @@ import ARKit
             
             // Create a session configuration
             let configuration = ARWorldTrackingConfiguration()
+            
+            configuration.planeDetection = [.horizontal, .vertical]
             
             //sceneView.preferredFramesPerSecond = 30
             sceneView.automaticallyUpdatesLighting = true
