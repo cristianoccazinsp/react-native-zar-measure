@@ -15,11 +15,22 @@ import ARKit
     @objc public var onMeasure: RCTDirectEventBlock? = nil
     
     
+    // MARK: Public methods
+    
+    func clear() -> Void
+    {
+        // no need for locks since everything runs on the UI thread
+        spheres.removeAll()
+        while let n = self.sceneView.scene.rootNode.childNodes.first { n.removeFromParentNode()
+        }
+    }
+    
 
     // MARK: Private properties
     private var sceneView = ARSCNView()
     private var spheres: [SCNNode] = []
     private var measurementLabel = UILabel()
+    private let lock = NSLock()
 
 
     // MARK: Class lifecycle methods
@@ -137,6 +148,7 @@ import ARKit
             var distance = sphere.distance(to: last)
             var unitsStr = "m"
             
+            // safe to call since we know these fire in the UI thread
             self.onMeasure?(["distance": distance])
             
             if(self.units == "ft"){

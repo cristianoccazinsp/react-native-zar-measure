@@ -1,14 +1,15 @@
 import React from "react";
 import { requireNativeComponent, NativeModules, ViewStyle, Platform,
-  PermissionsAndroid, Text, SafeAreaView
+  PermissionsAndroid, Text, SafeAreaView, findNodeHandle
  } from "react-native";
 
 
 const ZarMeasureModule = NativeModules.ZarMeasureViewManager || NativeModules.ZarMeasureModule;
 const Consts = ZarMeasureModule.getConstants();
+const dummy = () => {};
 
 
-type Props = {
+type ZarMeasureViewProps = {
 
   style: ViewStyle,
 
@@ -52,6 +53,18 @@ type Props = {
   onMeasure(evt: { distance: number }): void,
 }
 
+
+type ZarMeasureViewConsts = {
+
+  /**
+   * AR_SUPPORTED: true/false to indicate if AR is supported on the device
+  */
+  AR_SUPPORTED: boolean
+}
+
+
+
+
 export const androidCameraPermissionOptions = {
   title: 'Permission to use camera',
   message: 'We need your permission to use your camera.',
@@ -59,10 +72,10 @@ export const androidCameraPermissionOptions = {
   buttonNegative: 'Cancel',
 }
 
+let ZarMeasureConsts : ZarMeasureViewConsts = Consts;
 
-const dummy = () => {};
 
-export default class ZarMeasureView extends React.Component<Props>{
+export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>{
   static defaultProps = {
     androidCameraPermissionOptions: androidCameraPermissionOptions,
     pendingAuthorizationView: <SafeAreaView><Text>Loading...</Text></SafeAreaView>,
@@ -74,7 +87,21 @@ export default class ZarMeasureView extends React.Component<Props>{
     onMeasure: dummy
   }
 
-  static Consts = Consts
+
+
+  // ------ Public methods --------
+
+  /**
+   * Clears all drawings from the AR scene
+   */
+  async clear(){
+    const handle = findNodeHandle(this._ref.current);
+    if(handle){
+      await ZarMeasureModule.clear(handle);
+    }
+  }
+
+  // ------------------------------------------------
 
 
   constructor(props){
@@ -84,7 +111,9 @@ export default class ZarMeasureView extends React.Component<Props>{
       authChecked: false
     }
 
+    this._ref = React.createRef();
     this.requestPermissions = this.requestPermissions.bind(this);
+    this.clear = this.clear.bind(this);
   }
 
 
@@ -152,6 +181,7 @@ export default class ZarMeasureView extends React.Component<Props>{
     return (
       <NativeZarMeasureView
         {...props}
+        ref={this._ref}
         onMountError={this.onMountError}
         onMeasure={this.onMeasure}
       />
@@ -163,3 +193,6 @@ const NativeZarMeasureView = requireNativeComponent("ZarMeasureView", ZarMeasure
   nativeOnly: {
   }
 });
+
+
+export {ZarMeasureConsts};

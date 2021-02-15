@@ -11,4 +11,5 @@ RCT_EXPORT_VIEW_PROPERTY(onReady, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onMountError, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onMeasure, RCTDirectEventBlock)
 
+RCT_EXTERN_METHOD(clear: (nonnull NSNumber *)node resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
 @end

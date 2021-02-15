@@ -6,7 +6,8 @@ import ARKit
 class ZarMeasureViewManager: RCTViewManager {
     
     // MARK: RN Setup and Constants
-    private var _supportsAR = false;
+    private var _supportsAR = false
+    
     
     override static func requiresMainQueueSetup() -> Bool {
         return true
@@ -46,5 +47,19 @@ class ZarMeasureViewManager: RCTViewManager {
         }
     }
   
+    @objc
+    func clear(_ node:NSNumber, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    {
+        if #available(iOS 11.0, *) {
+            DispatchQueue.main.async {
+                let view = self.bridge.uiManager.view(forReactTag: node) as! ZarMeasureView
+                view.clear()
+                resolve(nil)
+            }
+        }
+        else{
+            resolve(nil)
+        }
+    }
     
 }
