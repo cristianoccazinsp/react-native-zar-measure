@@ -28,6 +28,7 @@ import ARKit
         spheres.removeAll()
         while let n = self.sceneView.scene.rootNode.childNodes.first { n.removeFromParentNode()
         }
+        lineNode?.removeFromParentNode()
         measurementLabel.text = ""
     }
     
@@ -36,7 +37,9 @@ import ARKit
     private var sceneView = ARSCNView()
     private var spheres: [SCNNode] = []
     private var measurementLabel = UILabel()
-
+    private let nodeColor : UIColor = UIColor.orange
+    private var lineNode : LineNode? = nil
+    
 
     // MARK: Class lifecycle methods
 
@@ -59,17 +62,25 @@ import ARKit
         
         if(newSuperview == nil){
             
-            // remove gesture handlers and stop session
+            // remove gesture handlers, delegates, and stop session
             sceneView.gestureRecognizers?.removeAll()
-            
+            sceneView.delegate = nil
+            sceneView.session.delegate = nil
             sceneView.session.pause()
         }
         else{
             
             // Create a session configuration
             let configuration = ARWorldTrackingConfiguration()
-            //sceneView.preferredFramesPerSecond = 30
             
+            //sceneView.preferredFramesPerSecond = 30
+            sceneView.automaticallyUpdatesLighting = true
+            sceneView.debugOptions = [ARSCNDebugOptions.showFeaturePoints]
+            sceneView.showsStatistics = false
+            
+            // Set the view's delegate and session delegate
+            sceneView.delegate = self
+            sceneView.session.delegate = self
             
             // Add gesture handlers
             let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
@@ -90,11 +101,6 @@ import ARKit
 
     private func commonInit() {
         
-        // Set the view's delegate
-        sceneView.delegate = self
-        
-        // Show statistics such as fps and timing information
-        sceneView.showsStatistics = false
         
         add(view: sceneView)
         
@@ -117,8 +123,7 @@ import ARKit
         //add(view: measurementLabel)
         add(view: measurementLabel)
         
-        // set session listener
-        sceneView.session.delegate = self
+        
     }
     
     public func session(_ session: ARSession, didFailWithError error: Error) {
@@ -190,6 +195,14 @@ import ARKit
             
             measurementLabel.text = "\(distance) \(unitsStr)"
             
+            let measureLine = LineNode(from: last.position, to: sphere.position, lineColor: self.nodeColor)
+            
+            
+            // remove any previous line, if any
+            // and add new one
+            lineNode?.removeFromParentNode()
+            lineNode = measureLine
+            self.sceneView.scene.rootNode.addChildNode(measureLine)
             
             // remove extra spheres
             while spheres.count > 2 {
@@ -223,8 +236,8 @@ import ARKit
         // Creates a material that is recognized by SceneKit
         let material = SCNMaterial()
         
-        // Converts the contents of the PNG file into the material
-        material.diffuse.contents = UIColor.orange
+        // Add color
+        material.diffuse.contents = self.nodeColor
         
         // Creates realistic shadows around the sphere
         material.lightingModel = .blinn
@@ -278,4 +291,47 @@ extension SCNNode {
         // Returns inches
         return CGFloat(meters)
     }
+}
+
+
+class LineNode: SCNNode {
+    
+    init(from vectorA: SCNVector3, to vectorB: SCNVector3, lineColor color: UIColor) {
+        super.init()
+        
+        let height = self.distance(from: vectorA, to: vectorB)
+        
+        self.position = vectorA
+        let nodeVector2 = SCNNode()
+        nodeVector2.position = vectorB
+        
+        let nodeZAlign = SCNNode()
+        nodeZAlign.eulerAngles.x = Float.pi/2
+        
+        let box = SCNBox(width: 0.001, height: height, length: 0.001, chamferRadius: 0)
+        let material = SCNMaterial()
+        material.diffuse.contents = color
+        box.materials = [material]
+        
+        
+        let nodeLine = SCNNode(geometry: box)
+        nodeLine.position.y = Float(-height/2) + 0.001
+        nodeZAlign.addChildNode(nodeLine)
+        
+        self.addChildNode(nodeZAlign)
+        
+        self.constraints = [SCNLookAtConstraint(target: nodeVector2)]
+    }
+    
+    required init?(coder aDecoder: NSCoder) {
+        super.init(coder: aDecoder)
+    }
+    
+    func distance(from vectorA: SCNVector3, to vectorB: SCNVector3)-> CGFloat {
+        return CGFloat (sqrt(
+            (vectorA.x - vectorB.x) * (vectorA.x - vectorB.x)
+                +   (vectorA.y - vectorB.y) * (vectorA.y - vectorB.y)
+                +   (vectorA.z - vectorB.z) * (vectorA.z - vectorB.z)))
+    }
+    
 }
