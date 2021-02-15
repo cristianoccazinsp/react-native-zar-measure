@@ -9,8 +9,11 @@ import ARKit
     
 
     // MARK: Public properties
+    @objc public var units: String = "m"
     @objc public var onReady: RCTDirectEventBlock? = nil
     @objc public var onMountError: RCTDirectEventBlock? = nil
+    @objc public var onMeasure: RCTDirectEventBlock? = nil
+    
     
 
     // MARK: Private properties
@@ -39,6 +42,10 @@ import ARKit
         super.willMove(toSuperview: newSuperview)
         
         if(newSuperview == nil){
+            
+            // remove gesture handlers and stop session
+            sceneView.gestureRecognizers?.removeAll()
+            
             sceneView.session.pause()
         }
         else{
@@ -46,6 +53,16 @@ import ARKit
             // Create a session configuration
             let configuration = ARWorldTrackingConfiguration()
             //sceneView.preferredFramesPerSecond = 30
+            
+            
+            // Add gesture handlers
+            let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
+            
+            // Sets the amount of taps needed to trigger the handler
+            tapRecognizer.numberOfTapsRequired = 1
+            
+            // Adds the handler to the scene view
+            sceneView.addGestureRecognizer(tapRecognizer)
             
             // Run the view's session
             sceneView.session.run(configuration)
@@ -61,16 +78,7 @@ import ARKit
         sceneView.delegate = self
         
         // Show statistics such as fps and timing information
-        sceneView.showsStatistics = true
-                        
-        // Creates a tap handler and then sets it to a constant
-        let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
-        
-        // Sets the amount of taps needed to trigger the handler
-        tapRecognizer.numberOfTapsRequired = 1
-        
-        // Adds the handler to the scene view
-        sceneView.addGestureRecognizer(tapRecognizer)
+        sceneView.showsStatistics = false
         
         add(view: sceneView)
         
@@ -82,7 +90,7 @@ import ARKit
         measurementLabel.backgroundColor = UIColor(white: 1, alpha: 0.0)
         
         // Sets some default text
-        measurementLabel.text = "0 m"
+        measurementLabel.text = ""
         measurementLabel.textColor = .white
         
         // Centers the text
@@ -125,7 +133,19 @@ import ARKit
             
             // Adds a second sphere to the array
             spheres.append(sphere)
-            measurementLabel.text = "\(sphere.distance(to: last)) m"
+            
+            var distance = sphere.distance(to: last)
+            var unitsStr = "m"
+            
+            self.onMeasure?(["distance": distance])
+            
+            if(self.units == "ft"){
+                distance = distance * 3.28084
+                unitsStr = "ft"
+            }
+            
+            measurementLabel.text = "\(distance) \(unitsStr)"
+            
             
             // remove extra spheres
             while spheres.count > 2 {

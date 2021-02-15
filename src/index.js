@@ -26,6 +26,9 @@ type Props = {
   /** View to render if auth is not given */
   notAuthorizedView: React.Component,
 
+  /** Units to render labels */
+  units: 'm' | 'ft',
+
   /**
    * Callback fired when authorization has changed
    *
@@ -41,6 +44,12 @@ type Props = {
 
   /** Fired if there was a camera mount error */
   onMountError(err: { message: string }): void,
+
+  /** Fired when two points have been measured and drawn with acceptable accuracy
+   *
+   * distance: meters (regardless of units)
+  */
+  onMeasure(evt: { distance: number }): void,
 }
 
 export const androidCameraPermissionOptions = {
@@ -58,12 +67,15 @@ export default class ZarMeasureView extends React.Component<Props>{
     androidCameraPermissionOptions: androidCameraPermissionOptions,
     pendingAuthorizationView: <SafeAreaView><Text>Loading...</Text></SafeAreaView>,
     notAuthorizedView: <SafeAreaView><Text>Not Authorized</Text></SafeAreaView>,
+    units: 'm',
     onStatusChange: dummy,
     onReady: dummy,
-    onMountError: dummy
+    onMountError: dummy,
+    onMeasure: dummy
   }
 
   static Consts = Consts
+
 
   constructor(props){
     super(props);
@@ -121,6 +133,10 @@ export default class ZarMeasureView extends React.Component<Props>{
     this.props.onMountError({message: evt.nativeEvent.message});
   }
 
+  onMeasure = (evt) => {
+    this.props.onMeasure({distance: evt.nativeEvent.distance});
+  }
+
   render(){
     let {authChecked, authorized} = this.state;
 
@@ -131,11 +147,13 @@ export default class ZarMeasureView extends React.Component<Props>{
       return this.props.notAuthorizedView;
     }
 
-    let {onMountError, ...props} = this.props;
+    let {onMountError, onMeasure, ...props} = this.props;
+
     return (
       <NativeZarMeasureView
         {...props}
         onMountError={this.onMountError}
+        onMeasure={this.onMeasure}
       />
     )
   }
