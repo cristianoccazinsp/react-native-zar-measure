@@ -23,6 +23,7 @@ import ARKit
         spheres.removeAll()
         while let n = self.sceneView.scene.rootNode.childNodes.first { n.removeFromParentNode()
         }
+        measurementLabel.text = ""
     }
     
 
@@ -30,7 +31,6 @@ import ARKit
     private var sceneView = ARSCNView()
     private var spheres: [SCNNode] = []
     private var measurementLabel = UILabel()
-    private let lock = NSLock()
 
 
     // MARK: Class lifecycle methods
