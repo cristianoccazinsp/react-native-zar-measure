@@ -10,9 +10,14 @@ import ARKit
 
     // MARK: Public properties
     @objc public var units: String = "m"
+    @objc public var hideHelp: Bool = false
+    @objc public var minDistanceCamera: CGFloat = 0.05
+    @objc public var maxDistanceCamera: CGFloat = 1
     @objc public var onReady: RCTDirectEventBlock? = nil
     @objc public var onMountError: RCTDirectEventBlock? = nil
+    @objc public var onDetect: RCTDirectEventBlock? = nil
     @objc public var onMeasure: RCTDirectEventBlock? = nil
+    @objc public var onMeasureError: RCTDirectEventBlock? = nil
     
     
     // MARK: Public methods
@@ -103,6 +108,7 @@ import ARKit
         // Sets some default text
         measurementLabel.text = ""
         measurementLabel.textColor = .white
+        measurementLabel.numberOfLines = 3
         
         // Centers the text
         measurementLabel.textAlignment = .center
@@ -128,7 +134,33 @@ import ARKit
         let hitTest = sceneView.hitTest(location, types: [ARHitTestResult.ResultType.featurePoint])
         
         // Assigns the most accurate result to a constant if it is non-nil
-        guard let result = hitTest.last else { return }
+        guard let result = hitTest.last else {
+            if(!hideHelp){
+                measurementLabel.text = "Detection failed. Please check your lightning and make sure you are not too far from the surface."
+            }
+            self.onMeasureError?(["message": "Detection failed"])
+            return
+        }
+        
+        if(result.distance < self.minDistanceCamera){
+            if(!hideHelp){
+                measurementLabel.text = "Detection failed. Please check your lightning and make sure you are not too close to the surface."
+            }
+            self.onMeasureError?(["message": "Detection failed: too close to the surface."])
+            return
+        }
+        
+        if(result.distance > self.maxDistanceCamera){
+            if(!hideHelp){
+                measurementLabel.text = "Detection failed. Please check your lightning and make sure you are not too far from the surface."
+            }
+            self.onMeasureError?(["message": "Detection failed: too far from the surface."])
+            return
+        }
+        
+        measurementLabel.text = ""
+        
+        self.onDetect?(["cameraDistance": result.distance])
         
         // Converts the matrix_float4x4 to an SCNMatrix4 to be used with SceneKit
         let transform = SCNMatrix4.init(result.worldTransform)
@@ -149,7 +181,7 @@ import ARKit
             var unitsStr = "m"
             
             // safe to call since we know these fire in the UI thread
-            self.onMeasure?(["distance": distance])
+            self.onMeasure?(["distance": distance, "cameraDistance": result.distance])
             
             if(self.units == "ft"){
                 distance = distance * 3.28084

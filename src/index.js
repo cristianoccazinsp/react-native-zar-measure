@@ -30,6 +30,26 @@ type ZarMeasureViewProps = {
   /** Units to render labels */
   units: 'm' | 'ft',
 
+  /** If true, measure error messages and help won't be shown
+   *
+   * default false
+   */
+  hideHelp: boolean,
+
+  /** Min distance in meters from the camera to perform detection.
+   * Anything smaller than this, will be ignored.
+   *
+   * default: 0.05
+   */
+  minDistanceCamera: number,
+
+  /** Max distance in meters from the camera to perform detection.
+   * Anything bigger than this, will be ignored.
+   *
+   * default: 1
+   */
+  maxDistanceCamera: number,
+
   /**
    * Callback fired when authorization has changed
    *
@@ -46,11 +66,21 @@ type ZarMeasureViewProps = {
   /** Fired if there was a camera mount error */
   onMountError(err: { message: string }): void,
 
+  /** Fired when a new detection has been made
+   *
+   * cameraDistance: meters
+  */
+  onDetect(evt: { cameraDistance: number }): void,
+
   /** Fired when two points have been measured and drawn with acceptable accuracy
    *
    * distance: meters (regardless of units)
+   * cameraDistance: meters
   */
-  onMeasure(evt: { distance: number }): void,
+  onMeasure(evt: { distance: number, cameraDistance: number }): void,
+
+  /** Fired when measure attempt / detection fails */
+  onMeasureError(err: { message: string }): void,
 }
 
 
@@ -81,10 +111,15 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     pendingAuthorizationView: <SafeAreaView><Text>Loading...</Text></SafeAreaView>,
     notAuthorizedView: <SafeAreaView><Text>Not Authorized</Text></SafeAreaView>,
     units: 'm',
+    hideHelp: false,
+    minDistanceCamera: 0.05,
+    maxDistanceCamera: 1,
     onStatusChange: dummy,
     onReady: dummy,
     onMountError: dummy,
-    onMeasure: dummy
+    onDetect: dummy,
+    onMeasure: dummy,
+    onMeasureError: dummy
   }
 
 
@@ -159,11 +194,19 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
   }
 
   onMountError = (evt) => {
-    this.props.onMountError({message: evt.nativeEvent.message});
+    this.props.onMountError(evt.nativeEvent);
+  }
+
+  onDetect = (evt) => {
+    this.props.onDetect(evt.nativeEvent);
   }
 
   onMeasure = (evt) => {
-    this.props.onMeasure({distance: evt.nativeEvent.distance});
+    this.props.onMeasure(evt.nativeEvent);
+  }
+
+  onMeasureError = (evt) => {
+    this.props.onMeasureError(evt.nativeEvent);
   }
 
   render(){
@@ -176,14 +219,22 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
       return this.props.notAuthorizedView;
     }
 
-    let {onMountError, onMeasure, ...props} = this.props;
+    let {
+      onMountError,
+      onDetect,
+      onMeasure,
+      onMeasureError,
+      ...props
+    } = this.props;
 
     return (
       <NativeZarMeasureView
         {...props}
         ref={this._ref}
         onMountError={this.onMountError}
+        onDetect={this.onDetect}
         onMeasure={this.onMeasure}
+        onMeasureError={this.onMeasureError}
       />
     )
   }
