@@ -158,7 +158,7 @@ import ARKit
                 // Fallback on earlier versions
             }
             
-            //sceneView.preferredFramesPerSecond = 30
+            sceneView.preferredFramesPerSecond = 30
             sceneView.automaticallyUpdatesLighting = true
             sceneView.debugOptions = [.showFeaturePoints]
             sceneView.showsStatistics = false
@@ -227,17 +227,19 @@ import ARKit
     // renderer callback method
     public func renderer(_ renderer: SCNSceneRenderer, updateAtTime time: TimeInterval) {
         
-        if spheres.count > 1 {
+        if spheres.count > 1 || !arReady {
             return
         }
         
         
         DispatchQueue.main.async {
-            let mStatus : String
             
-            if self.spheres.count > 1 {
+            // double check for race conditions
+            if self.spheres.count > 1 || !self.arReady {
                 return
             }
+            
+            let mStatus : String
             
             let (_, currentPosition, _) = self.doHitTestOnExistingPlanes(self.sceneView.center)
             
@@ -283,9 +285,7 @@ import ARKit
             
             if(mStatus != self.measuringStatus){
                 self.measuringStatus = mStatus
-                if(self.arReady){
-                    self.onMeasuringStatusChange?(["status": mStatus])
-                }
+                self.onMeasuringStatusChange?(["status": mStatus])
             }
             
         }
