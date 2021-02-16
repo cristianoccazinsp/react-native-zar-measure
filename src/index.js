@@ -55,13 +55,14 @@ type ZarMeasureViewProps = {
    *
    * authorized: true if auth was given, false otherwise
   */
-  onStatusChange(authorized): void,
+  onCameraStatusChange(authorized): void,
 
-  /** Fired when the component is is ready
+  /**
+   * Fired with AR tracking satus updates
    *
-   * Note: ARKit does not provide a ready function, so onMountError may fire afterwards
+   * status: off | no_anchors | not_available | excessive_motion | insufficient_features | initializing | ready
   */
-  onReady():void,
+  onStatusChange(evt: {status: string}):void,
 
   /** Fired if there was a camera mount error */
   onMountError(err: { message: string }): void,
@@ -114,8 +115,8 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     hideHelp: false,
     minDistanceCamera: 0.05,
     maxDistanceCamera: 1,
+    onCameraStatusChange: dummy,
     onStatusChange: dummy,
-    onReady: dummy,
     onMountError: dummy,
     onDetect: dummy,
     onMeasure: dummy,
@@ -193,6 +194,10 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     return permGranted;
   }
 
+  onStatusChange = (evt) => {
+    this.props.onStatusChange(evt.nativeEvent);
+  }
+
   onMountError = (evt) => {
     this.props.onMountError(evt.nativeEvent);
   }
@@ -220,6 +225,8 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     }
 
     let {
+      onCameraStatusChange,
+      onStatusChange,
       onMountError,
       onDetect,
       onMeasure,
@@ -231,6 +238,7 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
       <NativeZarMeasureView
         {...props}
         ref={this._ref}
+        onStatusChange={this.onStatusChange}
         onMountError={this.onMountError}
         onDetect={this.onDetect}
         onMeasure={this.onMeasure}

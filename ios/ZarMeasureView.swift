@@ -13,7 +13,7 @@ import ARKit
     @objc public var hideHelp: Bool = false
     @objc public var minDistanceCamera: CGFloat = 0.05
     @objc public var maxDistanceCamera: CGFloat = 1
-    @objc public var onReady: RCTDirectEventBlock? = nil
+    @objc public var onStatusChange: RCTDirectEventBlock? = nil
     @objc public var onMountError: RCTDirectEventBlock? = nil
     @objc public var onDetect: RCTDirectEventBlock? = nil
     @objc public var onMeasure: RCTDirectEventBlock? = nil
@@ -39,8 +39,10 @@ import ARKit
     private var measurementLabel = UILabel()
     private let nodeColor : UIColor = UIColor.orange
     private var lineNode : LineNode? = nil
-    
+    private var arReady : Bool = false
+    private var arStatus : String = "off"
 
+    
     // MARK: Class lifecycle methods
 
     public override init(frame: CGRect) {
@@ -55,6 +57,15 @@ import ARKit
 
     deinit {
         sceneView.session.pause()
+        arReady = false
+        arStatus = "off"
+    }
+    
+    public override func layoutSubviews() {
+        sceneView.frame = CGRect(x: 0, y: 0, width: frame.size.width, height: frame.size.height)
+        sceneView.setNeedsDisplay()
+        
+        super.layoutSubviews()
     }
     
     public override func willMove(toSuperview newSuperview: UIView?){
@@ -67,6 +78,8 @@ import ARKit
             sceneView.delegate = nil
             sceneView.session.delegate = nil
             sceneView.session.pause()
+            arReady = false
+            arStatus = "off"
         }
         else{
             
@@ -75,9 +88,19 @@ import ARKit
             
             configuration.planeDetection = [.horizontal, .vertical]
             
+            // this should technically use Lidar sensors and greatly
+            // improve accuracy
+            if #available(iOS 13.4, *) {
+                if(ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh)){
+                    configuration.sceneReconstruction = .mesh
+                }
+            } else {
+                // Fallback on earlier versions
+            }
+            
             //sceneView.preferredFramesPerSecond = 30
             sceneView.automaticallyUpdatesLighting = true
-            sceneView.debugOptions = [ARSCNDebugOptions.showFeaturePoints]
+            sceneView.debugOptions = [.showFeaturePoints]
             sceneView.showsStatistics = false
             
             // Set the view's delegate and session delegate
@@ -94,21 +117,20 @@ import ARKit
             sceneView.addGestureRecognizer(tapRecognizer)
             
             // Run the view's session
+            arReady = false
+            arStatus = "off"
             sceneView.session.run(configuration)
-            
-            self.onReady?(nil)
             
         }
     }
 
     private func commonInit() {
         
-        
         add(view: sceneView)
         
-        
         // Creates a background for the label
-        measurementLabel.frame = CGRect(x: 0, y: 0, width: frame.size.width, height: frame.size.height)
+        // NOT needed, our add handles laying out
+        //measurementLabel.frame = CGRect(x: 5, y: 5, width: frame.size.width - 5, height: frame.size.height - 5)
         
         // Makes the background white
         measurementLabel.backgroundColor = UIColor(white: 1, alpha: 0.0)
@@ -124,16 +146,40 @@ import ARKit
         // Adds the text to the
         //add(view: measurementLabel)
         add(view: measurementLabel)
-        
-        
     }
     
+    
+    // MARK: Session handling ARSessionDelegate
+    
     public func session(_ session: ARSession, didFailWithError error: Error) {
+        arReady = false
+        arStatus = "off"
         self.onMountError?(["message": error.localizedDescription])
     }
     
+    public func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
+        guard let frame = session.currentFrame else { return }
+        updateSessionInfoLabel(for: frame, trackingState: frame.camera.trackingState)
+    }
+
+    public func session(_ session: ARSession, didRemove anchors: [ARAnchor]) {
+        guard let frame = session.currentFrame else { return }
+        updateSessionInfoLabel(for: frame, trackingState: frame.camera.trackingState)
+    }
+
+    public func session(_ session: ARSession, cameraDidChangeTrackingState camera: ARCamera) {
+        updateSessionInfoLabel(for: session.currentFrame!, trackingState: camera.trackingState)
+    }
+    
+    
+    // MARK: Gesture handling
+    
     @objc func handleTap(sender: UITapGestureRecognizer) {
             
+        if(!arReady){
+            return
+        }
+        
         // Gets the location of the tap and assigns it to a constant
         let location = sender.location(in: sceneView)
         
@@ -195,7 +241,9 @@ import ARKit
                 unitsStr = "ft"
             }
             
-            measurementLabel.text = "\(distance) \(unitsStr)"
+            if(!hideHelp){
+                measurementLabel.text = "\(distance) \(unitsStr)"
+            }
             
             let measureLine = LineNode(from: last.position, to: sphere.position, lineColor: self.nodeColor)
             
@@ -223,8 +271,12 @@ import ARKit
         
     }
     
+    
+    
+    // MARK: Private functions
+    
     // Creates measuring endpoints
-    func newSphere(at position: SCNVector3) -> SCNNode {
+    private func newSphere(at position: SCNVector3) -> SCNNode {
         
         // Creates an SCNSphere with a radius of 0.4
         let sphere = SCNSphere(radius: 0.01)
@@ -251,12 +303,63 @@ import ARKit
         return node
         
     }
+    
+    private func updateSessionInfoLabel(for frame: ARFrame, trackingState: ARCamera.TrackingState) {
+        // Update the UI to provide feedback on the state of the AR experience.
+        let message: String
+        let status: String
 
-    public override func layoutSubviews() {
-        sceneView.frame = CGRect(x: 0, y: 0, width: frame.size.width, height: frame.size.height)
-        sceneView.setNeedsDisplay()
+        switch trackingState {
+            case .normal where frame.anchors.isEmpty:
+                // No planes detected; provide instructions for this app's AR interactions.
+                message = "Move the device around to detect surfaces."
+                status = "no_anchors"
+                arReady = false
+                
+            case .notAvailable:
+                message = "Tracking unavailable."
+                status = "not_available"
+                arReady = false
+                
+            case .limited(.excessiveMotion):
+                message = "Move the device more slowly."
+                status = "excessive_motion"
+                arReady = false
+                
+            case .limited(.insufficientFeatures):
+                message = "Point the device at an area with visible surface detail, or improve lighting conditions."
+                status = "insufficient_features"
+                arReady = false
+                
+            case .limited(.initializing):
+                message = "Move the device around to detect surfaces."
+                status = "initializing"
+                arReady = false
+                
+            default:
+                // No feedback needed when tracking is normal and planes are visible.
+                
+                // if ready not set yet, clear messages
+                if(!arReady){
+                    message = ""
+                    arReady = true
+                }
+                
+                // otherwise, leave message as is
+                else{
+                    message = measurementLabel.text ?? ""
+                }
+                status = "ready"
+        }
+
+        if(!hideHelp){
+            measurementLabel.text = message
+        }
         
-        super.layoutSubviews()
+        if(status != arStatus){
+            arStatus = status
+            onStatusChange?(["status": status])
+        }
     }
 }
 
