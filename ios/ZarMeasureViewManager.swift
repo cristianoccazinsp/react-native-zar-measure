@@ -62,4 +62,27 @@ class ZarMeasureViewManager: RCTViewManager {
         }
     }
     
+    @objc
+    func addPoint(_ node:NSNumber, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    {
+        if #available(iOS 11.3, *) {
+            DispatchQueue.main.async {
+                let view = self.bridge.uiManager.view(forReactTag: node) as! ZarMeasureView
+                
+                let (err, distance, cameraDistance) = view.addPoint()
+                
+                if(err == nil){
+                    resolve(["added": true, "error": nil, "distance": distance,
+                             "cameraDistance": cameraDistance])
+                }
+                else{
+                    resolve(["added": false, "error": err!])
+                }
+            }
+        }
+        else{
+            resolve(["added": false, "error": "Not supported"])
+        }
+    }
+    
 }

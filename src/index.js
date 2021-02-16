@@ -30,12 +30,6 @@ type ZarMeasureViewProps = {
   /** Units to render labels */
   units: 'm' | 'ft',
 
-  /** If true, measure error messages and help won't be shown
-   *
-   * default false
-   */
-  hideHelp: boolean,
-
   /** Min distance in meters from the camera to perform detection.
    * Anything smaller than this, will be ignored.
    *
@@ -46,7 +40,7 @@ type ZarMeasureViewProps = {
   /** Max distance in meters from the camera to perform detection.
    * Anything bigger than this, will be ignored.
    *
-   * default: 1
+   * default: 5
    */
   maxDistanceCamera: number,
 
@@ -62,26 +56,18 @@ type ZarMeasureViewProps = {
    *
    * status: off | no_anchors | not_available | excessive_motion | insufficient_features | initializing | ready
   */
-  onStatusChange(evt: {status: string}):void,
+  onARStatusChange(evt: {status: string}):void,
+
+  /**
+   * Fired when tracking is working, but measuring is not possible
+   *
+   * status: off | ready | error
+   * info: string with error details
+  */
+  onMeasuringStatusChange(evt: {status: string}):void,
 
   /** Fired if there was a camera mount error */
-  onMountError(err: { message: string }): void,
-
-  /** Fired when a new detection has been made
-   *
-   * cameraDistance: meters
-  */
-  onDetect(evt: { cameraDistance: number }): void,
-
-  /** Fired when two points have been measured and drawn with acceptable accuracy
-   *
-   * distance: meters (regardless of units)
-   * cameraDistance: meters
-  */
-  onMeasure(evt: { distance: number, cameraDistance: number }): void,
-
-  /** Fired when measure attempt / detection fails */
-  onMeasureError(err: { message: string }): void,
+  onMountError(err: { message: string }): void
 }
 
 
@@ -112,15 +98,12 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     pendingAuthorizationView: <SafeAreaView><Text>Loading...</Text></SafeAreaView>,
     notAuthorizedView: <SafeAreaView><Text>Not Authorized</Text></SafeAreaView>,
     units: 'm',
-    hideHelp: false,
     minDistanceCamera: 0.05,
-    maxDistanceCamera: 1,
+    maxDistanceCamera: 5,
     onCameraStatusChange: dummy,
-    onStatusChange: dummy,
-    onMountError: dummy,
-    onDetect: dummy,
-    onMeasure: dummy,
-    onMeasureError: dummy
+    onARStatusChange: dummy,
+    onMeasuringStatusChange: dummy,
+    onMountError: dummy
   }
 
 
@@ -137,6 +120,25 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     }
   }
 
+  /**
+   * Adds a new point in the currently detected node.
+   * If it was the first point added, only returns camera distance,
+   * otherwise, resolves with both distance and cameraDistance
+   * Lastly, if there were 2 points already, it is the same as calling clear and error is "Cleared"
+   *
+   * Resolves {added: bool, error: str, distance: number, cameraDistance: number}
+   * error will be a string if the add point operation failed (due to not enough precision or invalid state)
+   *
+   * distance: distance in meters (regarldess of unit)
+   * cameraDistance: camera distance in meters
+   */
+  async addPoint(){
+    const handle = findNodeHandle(this._ref.current);
+    if(handle){
+      return await ZarMeasureModule.addPoint(handle);
+    }
+  }
+
   // ------------------------------------------------
 
 
@@ -150,6 +152,7 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     this._ref = React.createRef();
     this.requestPermissions = this.requestPermissions.bind(this);
     this.clear = this.clear.bind(this);
+    this.addPoint = this.addPoint.bind(this);
   }
 
 
@@ -194,24 +197,16 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     return permGranted;
   }
 
-  onStatusChange = (evt) => {
-    this.props.onStatusChange(evt.nativeEvent);
+  onARStatusChange = (evt) => {
+    this.props.onARStatusChange(evt.nativeEvent);
+  }
+
+  onMeasuringStatusChange = (evt) => {
+    this.props.onMeasuringStatusChange(evt.nativeEvent);
   }
 
   onMountError = (evt) => {
     this.props.onMountError(evt.nativeEvent);
-  }
-
-  onDetect = (evt) => {
-    this.props.onDetect(evt.nativeEvent);
-  }
-
-  onMeasure = (evt) => {
-    this.props.onMeasure(evt.nativeEvent);
-  }
-
-  onMeasureError = (evt) => {
-    this.props.onMeasureError(evt.nativeEvent);
   }
 
   render(){
@@ -226,11 +221,9 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
 
     let {
       onCameraStatusChange,
-      onStatusChange,
+      onARStatusChange,
+      onMeasuringStatusChange,
       onMountError,
-      onDetect,
-      onMeasure,
-      onMeasureError,
       ...props
     } = this.props;
 
@@ -238,11 +231,9 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
       <NativeZarMeasureView
         {...props}
         ref={this._ref}
-        onStatusChange={this.onStatusChange}
+        onARStatusChange={this.onARStatusChange}
+        onMeasuringStatusChange={this.onMeasuringStatusChange}
         onMountError={this.onMountError}
-        onDetect={this.onDetect}
-        onMeasure={this.onMeasure}
-        onMeasureError={this.onMeasureError}
       />
     )
   }

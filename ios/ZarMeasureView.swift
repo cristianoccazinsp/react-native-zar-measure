@@ -10,18 +10,16 @@ import ARKit
 
     // MARK: Public properties
     @objc public var units: String = "m"
-    @objc public var hideHelp: Bool = false
     @objc public var minDistanceCamera: CGFloat = 0.05
-    @objc public var maxDistanceCamera: CGFloat = 1
-    @objc public var onStatusChange: RCTDirectEventBlock? = nil
+    @objc public var maxDistanceCamera: CGFloat = 5
+    @objc public var onARStatusChange: RCTDirectEventBlock? = nil
+    @objc public var onMeasuringStatusChange: RCTDirectEventBlock? = nil
     @objc public var onMountError: RCTDirectEventBlock? = nil
-    @objc public var onDetect: RCTDirectEventBlock? = nil
-    @objc public var onMeasure: RCTDirectEventBlock? = nil
-    @objc public var onMeasureError: RCTDirectEventBlock? = nil
     
     
     // MARK: Public methods
     
+    // removes all nodes and lines
     func clear() -> Void
     {
         // no need for locks since everything runs on the UI thread
@@ -29,7 +27,65 @@ import ARKit
         while let n = self.sceneView.scene.rootNode.childNodes.first { n.removeFromParentNode()
         }
         lineNode?.removeFromParentNode()
+        sphereNode?.removeFromParentNode()
         measurementLabel.text = ""
+    }
+    
+    
+    // Adds a new point (or calculates distance if there was one already)
+    // returns (err, distance, cameraDistance)
+    // if there are already 2 points, they all cleared and status is restarted
+    func addPoint() -> (String?, CGFloat?, CGFloat?)
+    {
+        let (er, currentPosition, result) = self.doHitTestOnExistingPlanes(self.sceneView.center)
+            
+        if(er != nil || currentPosition == nil || result == nil){
+            return (er, nil, nil)
+        }
+        else{
+            // Makes a new sphere with the created method
+            let sphere = SphereNode(at: currentPosition!, color: self.nodeColor)
+            
+            // if we already have 2 nodes, clear them
+            if(spheres.count > 1){
+                self.clear()
+                return("Cleared", nil, nil)
+            }
+
+            // Checks if there is at least one sphere in the array
+            if let last = spheres.last {
+
+                let distance = sphere.distance(to: last)
+
+                self.showMeasure(distance)
+                
+                let measureLine = LineNode(from: last.position, to: sphere.position, lineColor: self.nodeColor)
+
+
+                // remove any previous line, if any
+                // and add new one
+                lineNode?.removeFromParentNode()
+                sphereNode?.removeFromParentNode()
+
+                // Adds a second sphere to the array
+                spheres.append(sphere)
+                self.sceneView.scene.rootNode.addChildNode(sphere)
+                
+                // add line
+                lineNode = measureLine
+                self.sceneView.scene.rootNode.addChildNode(measureLine)
+                
+                return (nil, distance, result!.distance)
+
+            // If there are no spheres...
+            } else {
+                // Add the sphere
+                spheres.append(sphere)
+                self.sceneView.scene.rootNode.addChildNode(sphere)
+                
+                return (nil, nil, result!.distance)
+            }
+        }
     }
     
 
@@ -39,8 +95,10 @@ import ARKit
     private var measurementLabel = UILabel()
     private let nodeColor : UIColor = UIColor.orange
     private var lineNode : LineNode? = nil
+    private var sphereNode: SCNNode? = nil
     private var arReady : Bool = false
     private var arStatus : String = "off"
+    private var measuringStatus : String = "off"
 
     
     // MARK: Class lifecycle methods
@@ -59,6 +117,7 @@ import ARKit
         sceneView.session.pause()
         arReady = false
         arStatus = "off"
+        measuringStatus = "off"
     }
     
     public override func layoutSubviews() {
@@ -80,6 +139,7 @@ import ARKit
             sceneView.session.pause()
             arReady = false
             arStatus = "off"
+            measuringStatus = "off"
         }
         else{
             
@@ -107,18 +167,10 @@ import ARKit
             sceneView.delegate = self
             sceneView.session.delegate = self
             
-            // Add gesture handlers
-            let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
-            
-            // Sets the amount of taps needed to trigger the handler
-            tapRecognizer.numberOfTapsRequired = 1
-            
-            // Adds the handler to the scene view
-            sceneView.addGestureRecognizer(tapRecognizer)
-            
             // Run the view's session
             arReady = false
             arStatus = "off"
+            measuringStatus = "off"
             sceneView.session.run(configuration)
             
         }
@@ -154,6 +206,7 @@ import ARKit
     public func session(_ session: ARSession, didFailWithError error: Error) {
         arReady = false
         arStatus = "off"
+        measuringStatus = "off"
         self.onMountError?(["message": error.localizedDescription])
     }
     
@@ -171,103 +224,71 @@ import ARKit
         updateSessionInfoLabel(for: session.currentFrame!, trackingState: camera.trackingState)
     }
     
-    
-    // MARK: Gesture handling
-    
-    @objc func handleTap(sender: UITapGestureRecognizer) {
-            
-        if(!arReady){
+    // renderer callback method
+    public func renderer(_ renderer: SCNSceneRenderer, updateAtTime time: TimeInterval) {
+        
+        if spheres.count > 1 {
             return
         }
         
-        // Gets the location of the tap and assigns it to a constant
-        let location = sender.location(in: sceneView)
         
-        // Searches for real world objects such as surfaces and filters out flat surfaces
-        let hitTest = sceneView.hitTest(location, types: [.featurePoint])
-        
-        // Assigns the most accurate result to a constant if it is non-nil
-        guard let result = hitTest.last else {
-            if(!hideHelp){
-                measurementLabel.text = "Detection failed. Please check your lightning and make sure you are not too far from the surface."
+        DispatchQueue.main.async {
+            let mStatus : String
+            
+            if self.spheres.count > 1 {
+                return
             }
-            self.onMeasureError?(["message": "Detection failed"])
-            return
+            
+            let (_, currentPosition, _) = self.doHitTestOnExistingPlanes(self.sceneView.center)
+            
+            
+            if (currentPosition != nil) {
+                
+                // remove previous nodes
+                self.lineNode?.removeFromParentNode()
+                self.sphereNode?.removeFromParentNode()
+                
+                // if we have 1 node already, draw line
+                if let start = self.spheres.first {
+                    // line node
+                    self.lineNode = LineNode(from: start.position, to: currentPosition!, lineColor: self.nodeColor)
+                    
+                    self.sceneView.scene.rootNode.addChildNode(self.lineNode!)
+                    
+                    // sphere node
+                    self.sphereNode = SphereNode(at: currentPosition!, color: self.nodeColor)
+                    
+                    self.sceneView.scene.rootNode.addChildNode(self.sphereNode!)
+                    self.showMeasure(self.sphereNode!.distance(to: start))
+                    
+                }
+                
+                // else, just add a node
+                else{
+                    // sphere node
+                    self.sphereNode = SphereNode(at: currentPosition!, color: self.nodeColor)
+                    
+                    self.sceneView.scene.rootNode.addChildNode(self.sphereNode!)
+                }
+                
+                mStatus = "ready"
+            }
+            else{
+                // remove previous nodes
+                self.lineNode?.removeFromParentNode()
+                self.sphereNode?.removeFromParentNode()
+                
+                mStatus = "error"
+            }
+            
+            if(mStatus != self.measuringStatus){
+                self.measuringStatus = mStatus
+                if(self.arReady){
+                    self.onMeasuringStatusChange?(["status": mStatus])
+                }
+            }
+            
         }
-        
-        if(result.distance < self.minDistanceCamera){
-            if(!hideHelp){
-                measurementLabel.text = "Detection failed. Please check your lightning and make sure you are not too close to the surface."
-            }
-            self.onMeasureError?(["message": "Detection failed: too close to the surface."])
-            return
-        }
-        
-        if(result.distance > self.maxDistanceCamera){
-            if(!hideHelp){
-                measurementLabel.text = "Detection failed. Please check your lightning and make sure you are not too far from the surface."
-            }
-            self.onMeasureError?(["message": "Detection failed: too far from the surface."])
-            return
-        }
-        
-        measurementLabel.text = ""
-        
-        self.onDetect?(["cameraDistance": result.distance])
-        
-        // Converts the matrix_float4x4 to an SCNMatrix4 to be used with SceneKit
-        let transform = SCNMatrix4.init(result.worldTransform)
-        
-        // Creates an SCNVector3 with certain indexes in the matrix
-        let vector = SCNVector3Make(transform.m41, transform.m42, transform.m43)
-        
-        // Makes a new sphere with the created method
-        let sphere = newSphere(at: vector)
-        
-        // Checks if there is at least one sphere in the array
-        if let last = spheres.last {
-            
-            // Adds a second sphere to the array
-            spheres.append(sphere)
-            
-            var distance = sphere.distance(to: last)
-            var unitsStr = "m"
-            
-            // safe to call since we know these fire in the UI thread
-            self.onMeasure?(["distance": distance, "cameraDistance": result.distance])
-            
-            if(self.units == "ft"){
-                distance = distance * 3.28084
-                unitsStr = "ft"
-            }
-            
-            if(!hideHelp){
-                measurementLabel.text = "\(distance) \(unitsStr)"
-            }
-            
-            let measureLine = LineNode(from: last.position, to: sphere.position, lineColor: self.nodeColor)
-            
-            
-            // remove any previous line, if any
-            // and add new one
-            lineNode?.removeFromParentNode()
-            lineNode = measureLine
-            self.sceneView.scene.rootNode.addChildNode(measureLine)
-            
-            // remove extra spheres
-            while spheres.count > 2 {
-                let f = spheres.removeFirst()
-                f.removeFromParentNode()
-            }
-            
-        
-        // If there are no spheres...
-        } else {
-            // Add the sphere
-            spheres.append(sphere)
-        }
-        
-        self.sceneView.scene.rootNode.addChildNode(sphere)
         
     }
     
@@ -275,34 +296,59 @@ import ARKit
     
     // MARK: Private functions
     
-    // Creates measuring endpoints
-    private func newSphere(at position: SCNVector3) -> SCNNode {
+    private func showMeasure(_ value: CGFloat) {
+        var unitsStr = "m"
+        var distance = value
         
-        // Creates an SCNSphere with a radius of 0.4
-        let sphere = SCNSphere(radius: 0.01)
-        
-        // Converts the sphere into an SCNNode
-        let node = SCNNode(geometry: sphere)
-        
-        // Positions the node based on the passed in position
-        node.position = position
-        
-        // Creates a material that is recognized by SceneKit
-        let material = SCNMaterial()
-        
-        // Add color
-        material.diffuse.contents = self.nodeColor
-        
-        // Creates realistic shadows around the sphere
-        material.lightingModel = .blinn
-        
-        // Wraps the newly made material around the sphere
-        sphere.firstMaterial = material
-        
-        // Returns the node to the function
-        return node
+        if(self.units == "ft"){
+            distance = value * 3.28084
+            unitsStr = "ft"
+        }
+
+        let formatted = String(format: "%.2f", distance)
+        measurementLabel.text = "\(formatted) \(unitsStr)"
         
     }
+    
+    
+    // Returns (error, point, hitTestResult)
+    // if there was an error, error will be a non nil string
+    // and the rest nil. Otherwise, a vector and hit result are returned
+    private func doHitTestOnExistingPlanes(_ location: CGPoint) -> (String?, SCNVector3?, ARHitTestResult?) {
+        
+        if(!arReady){
+            return ("Not Ready", nil, nil)
+        }
+        
+        // Searches for real world objects such as surfaces and filters out flat surfaces
+        let hitTest = sceneView.hitTest(location, types: [.estimatedHorizontalPlane, .estimatedVerticalPlane, .featurePoint])
+        
+        // Assigns the most accurate result to a constant if it is non-nil
+        guard let result = hitTest.last else {
+            measurementLabel.text = "Please check your lightning and make sure you are not too far from the surface."
+            
+            return ("Detection failed", nil, nil)
+        }
+        
+        if(result.distance < self.minDistanceCamera){
+            measurementLabel.text = "Please check your lightning and make sure you are not too close to the surface."
+            
+            return ("Detection failed: too close to the surface", nil, nil)
+        }
+        
+        if(result.distance > self.maxDistanceCamera){
+            measurementLabel.text = "Please check your lightning and make sure you are not too far from the surface."
+            
+            return ("Detection failed: too far from the surface", nil, nil)
+        }
+        
+        measurementLabel.text = ""
+        
+        let hitPos = SCNVector3.positionFrom(matrix: result.worldTransform)
+        
+        return (nil, hitPos, result)
+    }
+    
     
     private func updateSessionInfoLabel(for frame: ARFrame, trackingState: ARCamera.TrackingState) {
         // Update the UI to provide feedback on the state of the AR experience.
@@ -357,13 +403,11 @@ import ARKit
                 status = "ready"
         }
 
-        if(!hideHelp){
-            measurementLabel.text = message
-        }
+        measurementLabel.text = message
         
         if(status != arStatus){
             arStatus = status
-            onStatusChange?(["status": status])
+            onARStatusChange?(["status": status])
         }
     }
 }
@@ -385,21 +429,21 @@ extension SCNNode {
     
     // Gets distance between two SCNNodes in meters
     func distance(to destination: SCNNode) -> CGFloat {
-        
-        // Difference between x-positions
-        let dx = destination.position.x - position.x
-        
-        // Difference between x-positions
-        let dy = destination.position.y - position.y
-        
-        // Difference between x-positions
-        let dz = destination.position.z - position.z
-        
-        // Formula to get meters
-        let meters = sqrt(dx*dx + dy*dy + dz*dz)
-        
-        // Returns inches
-        return CGFloat(meters)
+        return position.distance(to: destination.position)
+    }
+}
+
+extension SCNVector3 {
+    func distance(to destination: SCNVector3) -> CGFloat {
+        let dx = destination.x - x
+        let dy = destination.y - y
+        let dz = destination.z - z
+        return CGFloat(sqrt(dx*dx + dy*dy + dz*dz))
+    }
+    
+    static func positionFrom(matrix: matrix_float4x4) -> SCNVector3 {
+        let column = matrix.columns.3
+        return SCNVector3(column.x, column.y, column.z)
     }
 }
 
@@ -409,7 +453,8 @@ class LineNode: SCNNode {
     init(from vectorA: SCNVector3, to vectorB: SCNVector3, lineColor color: UIColor) {
         super.init()
         
-        let height = self.distance(from: vectorA, to: vectorB)
+        //let height = self.distance(from: vectorA, to: vectorB)
+        let height = vectorA.distance(to: vectorB)
         
         self.position = vectorA
         let nodeVector2 = SCNNode()
@@ -437,11 +482,35 @@ class LineNode: SCNNode {
         super.init(coder: aDecoder)
     }
     
-    func distance(from vectorA: SCNVector3, to vectorB: SCNVector3)-> CGFloat {
-        return CGFloat (sqrt(
-            (vectorA.x - vectorB.x) * (vectorA.x - vectorB.x)
-                +   (vectorA.y - vectorB.y) * (vectorA.y - vectorB.y)
-                +   (vectorA.z - vectorB.z) * (vectorA.z - vectorB.z)))
+}
+
+class SphereNode: SCNNode {
+    
+    init(at position: SCNVector3, color nodeColor: UIColor) {
+        super.init()
+        
+        // Creates an SCNSphere with a radius of 0.4
+        let sphere = SCNSphere(radius: 0.01)
+        
+        
+        // Creates a material that is recognized by SceneKit
+        let material = SCNMaterial()
+        
+        // Add color
+        material.diffuse.contents = nodeColor
+        
+        // Creates realistic shadows around the sphere
+        material.lightingModel = .blinn
+        
+        // Wraps the newly made material around the sphere
+        sphere.firstMaterial = material
+        
+        // Positions the node based on the passed in position
+        self.geometry = sphere
+        self.position = position
     }
     
+    required init?(coder aDecoder: NSCoder) {
+        super.init(coder: aDecoder)
+    }
 }
