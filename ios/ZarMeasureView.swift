@@ -336,6 +336,11 @@ import ARKit
                 status = "initializing"
                 arReady = false
                 
+            case .limited(.relocalizing):
+                message = "Move the device around to detect surfaces."
+                status = "initializing"
+                arReady = false
+                
             default:
                 // No feedback needed when tracking is normal and planes are visible.
                 
