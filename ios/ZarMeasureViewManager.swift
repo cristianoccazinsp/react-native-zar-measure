@@ -85,4 +85,20 @@ class ZarMeasureViewManager: RCTViewManager {
         }
     }
     
+    @objc
+    func takePicture(_ node:NSNumber, imagePath path: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    {
+        if #available(iOS 11.3, *) {
+            DispatchQueue.main.async {
+                let view = self.bridge.uiManager.view(forReactTag: node) as! ZarMeasureView
+                
+                let err = view.takePicture(path)
+                resolve(["error": err])
+            }
+        }
+        else{
+            resolve(["error": "Not supported"])
+        }
+    }
+    
 }

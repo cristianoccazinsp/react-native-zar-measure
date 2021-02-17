@@ -137,6 +137,20 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     if(handle){
       return await ZarMeasureModule.addPoint(handle);
     }
+    return {error: "View not available", added: false};
+  }
+
+  /**
+   * Takes a PNG picture of the current scene and saves it into the given path
+   *
+   * Resolves ({error: str})
+   */
+  async takePicture(path){
+    const handle = findNodeHandle(this._ref.current);
+    if(handle){
+      return await ZarMeasureModule.takePicture(handle, path);
+    }
+    return {error: "View not available"};
   }
 
   // ------------------------------------------------

@@ -93,6 +93,31 @@ import ARKit
         }
     }
     
+    // Takes a PNG picture of the scene.
+    // returns not nil if there was an error
+    func takePicture(_ path : String) -> String?
+    {
+        if(!arReady){
+            return "Not ready"
+        }
+        
+        let image = sceneView.snapshot()
+        
+        if let data = image.pngData() {
+            let fileUrl = URL(fileURLWithPath: path)
+            
+            do{
+                try data.write(to: fileUrl)
+                return nil
+            }
+            catch let error  {
+                return "Failed to write image to path: " + error.localizedDescription
+            }
+        }
+        else{
+            return "Failed to save image."
+        }
+    }
 
     // MARK: Private properties
     private var sceneView = ARSCNView()
@@ -176,7 +201,7 @@ import ARKit
             
             sceneView.preferredFramesPerSecond = 30
             sceneView.automaticallyUpdatesLighting = true
-            sceneView.debugOptions = [.showFeaturePoints]
+            //sceneView.debugOptions = [.showFeaturePoints]
             sceneView.showsStatistics = false
             
             // Set the view's delegate and session delegate
