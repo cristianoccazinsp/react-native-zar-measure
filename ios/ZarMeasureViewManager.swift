@@ -92,8 +92,9 @@ class ZarMeasureViewManager: RCTViewManager {
             DispatchQueue.main.async {
                 let view = self.bridge.uiManager.view(forReactTag: node) as! ZarMeasureView
                 
-                let err = view.takePicture(path)
-                resolve(["error": err])
+                view.takePicture(path){ err in
+                    resolve(["error": err])
+                }
             }
         }
         else{

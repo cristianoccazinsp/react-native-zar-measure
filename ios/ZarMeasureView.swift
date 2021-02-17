@@ -19,7 +19,8 @@ import ARKit
     
     // MARK: Public methods
     
-    // removes all nodes and lines
+    // Removes all nodes and lines
+    // Must be called on UI thread
     func clear() -> Void
     {
         // no need for locks since everything runs on the UI thread
@@ -35,6 +36,7 @@ import ARKit
     // Adds a new point (or calculates distance if there was one already)
     // returns (err, distance, cameraDistance)
     // if there are already 2 points, they all cleared and status is restarted
+    // Must be called on UI thread
     func addPoint() -> (String?, CGFloat?, CGFloat?)
     {
         // if we already have 2 nodes, clear them
@@ -94,28 +96,32 @@ import ARKit
     }
     
     // Takes a PNG picture of the scene.
-    // returns not nil if there was an error
-    func takePicture(_ path : String) -> String?
+    // Calls completion handler with a string if there was an error
+    // or nil otherwise.
+    // Must be called on UI thread
+    func takePicture(_ path : String, completion: @escaping (String?) -> Void)
     {
         if(!arReady){
-            return "Not ready"
+            completion("Not ready")
         }
         
         let image = sceneView.snapshot()
         
-        if let data = image.pngData() {
-            let fileUrl = URL(fileURLWithPath: path)
-            
-            do{
-                try data.write(to: fileUrl)
-                return nil
+        DispatchQueue.global(qos: .background).async {
+            if let data = image.pngData() {
+                let fileUrl = URL(fileURLWithPath: path)
+                
+                do{
+                    try data.write(to: fileUrl)
+                    completion(nil)
+                }
+                catch let error  {
+                    completion("Failed to write image to path: " + error.localizedDescription)
+                }
             }
-            catch let error  {
-                return "Failed to write image to path: " + error.localizedDescription
+            else{
+                completion("Failed to save image.")
             }
-        }
-        else{
-            return "Failed to save image."
         }
     }
 
