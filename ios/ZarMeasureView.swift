@@ -499,14 +499,14 @@ class LineNode: SCNNode {
         let nodeZAlign = SCNNode()
         nodeZAlign.eulerAngles.x = Float.pi/2
         
-        let box = SCNBox(width: 0.001, height: height, length: 0.001, chamferRadius: 0)
+        let box = SCNBox(width: 0.004, height: height, length: 0.004, chamferRadius: 0)
         let material = SCNMaterial()
         material.diffuse.contents = color
         box.materials = [material]
         
         
         let nodeLine = SCNNode(geometry: box)
-        nodeLine.position.y = Float(-height/2) + 0.001
+        nodeLine.position.y = Float(-height/2) + 0.004
         nodeZAlign.addChildNode(nodeLine)
         
         self.addChildNode(nodeZAlign)
@@ -525,8 +525,8 @@ class SphereNode: SCNNode {
     init(at position: SCNVector3, color nodeColor: UIColor) {
         super.init()
         
-        // Creates an SCNSphere with a radius of 0.4
-        let sphere = SCNSphere(radius: 0.01)
+        // Creates an SCNSphere with a radius
+        let sphere = SCNSphere(radius: 0.02)
         
         // Creates a material that is recognized by SceneKit
         let material = SCNMaterial()
@@ -564,7 +564,7 @@ class TextNode: SCNNode {
         
         
         let text = SCNText(string: label, extrusionDepth: extrusionDepth)
-        text.font = UIFont.systemFont(ofSize: 4, weight: UIFont.Weight.heavy)
+        text.font = UIFont.systemFont(ofSize: 5, weight: UIFont.Weight.heavy)
         text.firstMaterial?.diffuse.contents = color
         text.firstMaterial?.isDoubleSided = true
         
