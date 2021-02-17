@@ -37,6 +37,12 @@ import ARKit
     // if there are already 2 points, they all cleared and status is restarted
     func addPoint() -> (String?, CGFloat?, CGFloat?)
     {
+        // if we already have 2 nodes, clear them
+        if(spheres.count > 1){
+            self.clear()
+            return("Cleared", nil, nil)
+        }
+        
         let (er, currentPosition, result) = self.doHitTestOnExistingPlanes(self.sceneView.center)
             
         if(er != nil || currentPosition == nil || result == nil){
@@ -46,20 +52,19 @@ import ARKit
             // Makes a new sphere with the created method
             let sphere = SphereNode(at: currentPosition!, color: self.nodeColor)
             
-            // if we already have 2 nodes, clear them
-            if(spheres.count > 1){
-                self.clear()
-                return("Cleared", nil, nil)
-            }
-
             // Checks if there is at least one sphere in the array
             if let last = spheres.last {
 
                 let distance = sphere.distance(to: last)
 
-                self.showMeasure(distance)
+                //self.showMeasure(distance)
+                measurementLabel.text = ""
                 
-                let measureLine = LineNode(from: last.position, to: sphere.position, lineColor: self.nodeColor)
+                let textNode = TextNode(between: last.position, and: sphere.position, textLabel: self.getMeasureString(distance), textColor: self.nodeColor)
+                
+                self.sceneView.scene.rootNode.addChildNode(textNode)
+                
+                let measureLine = LineNode(from: last.position, to: sphere.position, lineColor: self.textColor)
 
 
                 // remove any previous line, if any
@@ -93,7 +98,12 @@ import ARKit
     private var sceneView = ARSCNView()
     private var spheres: [SCNNode] = []
     private var measurementLabel = UILabel()
-    private let nodeColor : UIColor = UIColor.orange
+    
+    // colors good enough for white surfaces
+    private let nodeColor : UIColor = UIColor(red: 255/255.0, green: 153/255.0, blue: 0, alpha: 1)
+    private let textColor : UIColor = UIColor(red: 255/255.0, green: 153/255.0, blue: 0, alpha: 1)
+    private let fontSize : CGFloat = 16
+    
     private var lineNode : LineNode? = nil
     private var sphereNode: SCNNode? = nil
     private var arReady : Bool = false
@@ -121,10 +131,16 @@ import ARKit
     }
     
     public override func layoutSubviews() {
-        sceneView.frame = CGRect(x: 0, y: 0, width: frame.size.width, height: frame.size.height)
-        sceneView.setNeedsDisplay()
-        
         super.layoutSubviews()
+        
+        sceneView.frame = CGRect(x: 0, y: 0, width: frame.size.width, height: frame.size.height)
+        
+        // measurement label, slightly smaller in height
+        // so we don't overlap with the center
+        measurementLabel.frame = CGRect(x: 0, y: 0, width: frame.size.width, height: frame.size.height - fontSize * 4)
+                                        
+        sceneView.setNeedsDisplay()
+        measurementLabel.setNeedsDisplay()
     }
     
     public override func willMove(toSuperview newSuperview: UIView?){
@@ -178,26 +194,17 @@ import ARKit
 
     private func commonInit() {
         
-        add(view: sceneView)
+        // add our main scene view
+        addSubview(sceneView)
         
-        // Creates a background for the label
-        // NOT needed, our add handles laying out
-        //measurementLabel.frame = CGRect(x: 5, y: 5, width: frame.size.width - 5, height: frame.size.height - 5)
-        
-        // Makes the background white
+        // Add our main text indixcator
         measurementLabel.backgroundColor = UIColor(white: 1, alpha: 0.0)
-        
-        // Sets some default text
         measurementLabel.text = ""
-        measurementLabel.textColor = .white
+        measurementLabel.textColor = self.textColor
+        measurementLabel.font = UIFont.systemFont(ofSize: fontSize, weight: UIFont.Weight.heavy)
         measurementLabel.numberOfLines = 3
-        
-        // Centers the text
         measurementLabel.textAlignment = .center
-        
-        // Adds the text to the
-        //add(view: measurementLabel)
-        add(view: measurementLabel)
+        addSubview(measurementLabel)
     }
     
     
@@ -296,7 +303,7 @@ import ARKit
     
     // MARK: Private functions
     
-    private func showMeasure(_ value: CGFloat) {
+    private func getMeasureString(_ value: CGFloat) -> String{
         var unitsStr = "m"
         var distance = value
         
@@ -306,8 +313,11 @@ import ARKit
         }
 
         let formatted = String(format: "%.2f", distance)
-        measurementLabel.text = "\(formatted) \(unitsStr)"
-        
+        return "\(formatted) \(unitsStr)"
+    }
+    
+    private func showMeasure(_ value: CGFloat) {
+        measurementLabel.text = getMeasureString(value)
     }
     
     
@@ -413,17 +423,18 @@ import ARKit
 }
 
 // This is needed so the view uses the parent's space
-private extension UIView {
-    func add(view: UIView) {
-        view.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(view)
-        let views = ["view": view]
-        let hConstraints = NSLayoutConstraint.constraints(withVisualFormat: "|[view]|", options: [], metrics: nil, views: views)
-        let vConstraints = NSLayoutConstraint.constraints(withVisualFormat: "V:|[view]|", options: [], metrics: nil, views: views)
-        self.addConstraints(hConstraints)
-        self.addConstraints(vConstraints)
-    }
-}
+// no longer needed, just use layoutSubviews
+//private extension UIView {
+//    func add(view: UIView) {
+//        view.translatesAutoresizingMaskIntoConstraints = false
+//        addSubview(view)
+//        let views = ["view": view]
+//        let hConstraints = NSLayoutConstraint.constraints(withVisualFormat: "|[view]|", options: [], metrics: nil, views: views)
+//        let vConstraints = NSLayoutConstraint.constraints(withVisualFormat: "V:|[view]|", options: [], metrics: nil, views: views)
+//        self.addConstraints(hConstraints)
+//        self.addConstraints(vConstraints)
+//    }
+//}
 
 extension SCNNode {
     
@@ -492,7 +503,6 @@ class SphereNode: SCNNode {
         // Creates an SCNSphere with a radius of 0.4
         let sphere = SCNSphere(radius: 0.01)
         
-        
         // Creates a material that is recognized by SceneKit
         let material = SCNMaterial()
         
@@ -513,4 +523,47 @@ class SphereNode: SCNNode {
     required init?(coder aDecoder: NSCoder) {
         super.init(coder: aDecoder)
     }
+}
+
+
+@available(iOS 11.0, *)
+class TextNode: SCNNode {
+    
+    private let extrusionDepth: CGFloat = 0.1
+    private let textNodeScale = SCNVector3Make(0.01, 0.01, 0.01)
+    
+    init(between vectorA: SCNVector3, and vectorB: SCNVector3, textLabel label: String, textColor color: UIColor) {
+        super.init()
+        
+        let constraint = SCNBillboardConstraint()
+        
+        
+        let text = SCNText(string: label, extrusionDepth: extrusionDepth)
+        text.font = UIFont.systemFont(ofSize: 4, weight: UIFont.Weight.heavy)
+        text.firstMaterial?.diffuse.contents = color
+        text.firstMaterial?.isDoubleSided = true
+        
+        
+        let x = (vectorA.x + vectorB.x) / 2
+        let y = (vectorA.y + vectorB.y) / 2
+        let z = (vectorA.z + vectorB.z) / 2
+        
+        let max = text.boundingBox.max
+        let min = text.boundingBox.min
+        let tx = (max.x + min.x) / 2.0
+        let ty = (max.y + min.y) / 2.0
+        let tz = Float(extrusionDepth) / 2.0
+    
+        
+        self.pivot = SCNMatrix4MakeTranslation(tx, ty, tz)
+        self.geometry = text
+        self.scale = textNodeScale
+        self.position = SCNVector3(x, y, z)
+        self.constraints = [constraint]
+    }
+    
+    required init?(coder aDecoder: NSCoder) {
+        super.init(coder: aDecoder)
+    }
+    
 }
