@@ -155,10 +155,10 @@ import ARKit
     }
 
     deinit {
-        sceneView.session.pause()
-        arReady = false
-        arStatus = "off"
-        measuringStatus = "off"
+//        sceneView.session.pause()
+//        arReady = false
+//        arStatus = "off"
+//        measuringStatus = "off"
     }
     
     public override func layoutSubviews() {
