@@ -71,16 +71,6 @@ type ZarMeasureViewProps = {
 }
 
 
-type ZarMeasureViewConsts = {
-
-  /**
-   * AR_SUPPORTED: true/false to indicate if AR is supported on the device
-  */
-  AR_SUPPORTED: boolean
-}
-
-
-
 
 export const androidCameraPermissionOptions = {
   title: 'Permission to use camera',
@@ -88,8 +78,6 @@ export const androidCameraPermissionOptions = {
   buttonPositive: 'Ok',
   buttonNegative: 'Cancel',
 }
-
-let ZarMeasureConsts : ZarMeasureViewConsts = Consts;
 
 
 export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>{
@@ -106,6 +94,12 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     onMountError: dummy
   }
 
+  // ------ Consts ----------------
+
+  static Constants = {
+    /** true/false to indicate if AR is supported on the device */
+    AR_SUPPORTED: Consts.AR_SUPPORTED
+  }
 
 
   // ------ Public methods --------
@@ -258,5 +252,3 @@ const NativeZarMeasureView = requireNativeComponent("ZarMeasureView", ZarMeasure
   }
 });
 
-
-export {ZarMeasureConsts};
