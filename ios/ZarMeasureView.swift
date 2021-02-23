@@ -47,7 +47,7 @@ import ARKit
         
         let (er, currentPosition, result) = self.doHitTestOnExistingPlanes(self.sceneView.center)
             
-        if(er != nil || currentPosition == nil || result == nil){
+        if(currentPosition == nil || result == nil){
             return (er, nil, nil)
         }
         else{
@@ -132,6 +132,7 @@ import ARKit
     
     // colors good enough for white surfaces
     private let nodeColor : UIColor = UIColor(red: 255/255.0, green: 153/255.0, blue: 0, alpha: 1)
+    private let nodeColorErr : UIColor = UIColor(red: 240/255.0, green: 0, blue: 0, alpha: 1)
     private let textColor : UIColor = UIColor(red: 255/255.0, green: 153/255.0, blue: 0, alpha: 1)
     private let fontSize : CGFloat = 16
     
@@ -279,7 +280,7 @@ import ARKit
             
             let mStatus : String
             
-            let (_, currentPosition, _) = self.doHitTestOnExistingPlanes(self.sceneView.center)
+            let (err, currentPosition, _) = self.doHitTestOnExistingPlanes(self.sceneView.center)
             
             
             if (currentPosition != nil) {
@@ -288,30 +289,40 @@ import ARKit
                 self.lineNode?.removeFromParentNode()
                 self.sphereNode?.removeFromParentNode()
                 
+                
+                // node color if there was an acceptable error
+                let color = err != nil ? self.nodeColorErr : self.nodeColor
+                
                 // if we have 1 node already, draw line
+                // also consider if we have errors
                 if let start = self.spheres.first {
+                    
                     // line node
-                    self.lineNode = LineNode(from: start.position, to: currentPosition!, lineColor: self.nodeColor)
+                    self.lineNode = LineNode(from: start.position, to: currentPosition!, lineColor: color)
                     
                     self.sceneView.scene.rootNode.addChildNode(self.lineNode!)
                     
                     // sphere node
-                    self.sphereNode = SphereNode(at: currentPosition!, color: self.nodeColor)
+                    self.sphereNode = SphereNode(at: currentPosition!, color: color)
                     
                     self.sceneView.scene.rootNode.addChildNode(self.sphereNode!)
-                    self.showMeasure(self.sphereNode!.distance(to: start))
+                    
+                    // only update label if there was no error
+                    if(err == nil){
+                        self.showMeasure(self.sphereNode!.distance(to: start))
+                    }
                     
                 }
                 
                 // else, just add a node
                 else{
                     // sphere node
-                    self.sphereNode = SphereNode(at: currentPosition!, color: self.nodeColor)
+                    self.sphereNode = SphereNode(at: currentPosition!, color: color)
                     
                     self.sceneView.scene.rootNode.addChildNode(self.sphereNode!)
                 }
                 
-                mStatus = "ready"
+                mStatus = err == nil ? "ready" : "error"
             }
             else{
                 // remove previous nodes
@@ -371,21 +382,24 @@ import ARKit
             return ("Detection failed", nil, nil)
         }
         
+        
+        // for distance errors, still return hit point
+        // the UI may decide to show or not the values
+        let hitPos = SCNVector3.positionFrom(matrix: result.worldTransform)
+        
         if(result.distance < self.minDistanceCamera){
-            measurementLabel.text = "Please check your lightning and make sure you are not too close to the surface."
+            measurementLabel.text = "Make sure you are not too close to the surface, or improve lightning conditions."
             
-            return ("Detection failed: too close to the surface", nil, nil)
+            return ("Detection failed: too close to the surface", hitPos, result)
         }
         
         if(result.distance > self.maxDistanceCamera){
-            measurementLabel.text = "Please check your lightning and make sure you are not too far from the surface."
+            measurementLabel.text = "Make sure you are not too far from the surface, or improve lightning conditions."
             
-            return ("Detection failed: too far from the surface", nil, nil)
+            return ("Detection failed: too far from the surface", hitPos, result)
         }
         
         measurementLabel.text = ""
-        
-        let hitPos = SCNVector3.positionFrom(matrix: result.worldTransform)
         
         return (nil, hitPos, result)
     }
@@ -399,7 +413,7 @@ import ARKit
         switch trackingState {
             case .normal where frame.anchors.isEmpty:
                 // No planes detected; provide instructions for this app's AR interactions.
-                message = "Move the device around to detect surfaces."
+                message = "To begin, move the device around the area to improve subsequent measurement accuracy."
                 status = "no_anchors"
                 arReady = false
                 
@@ -414,17 +428,17 @@ import ARKit
                 arReady = false
                 
             case .limited(.insufficientFeatures):
-                message = "Point the device at an area with visible surface detail, or improve lighting conditions."
+                message = "Point the device at a visible surface, or improve lightning conditions."
                 status = "insufficient_features"
                 arReady = false
                 
             case .limited(.initializing):
-                message = "Move the device around to detect surfaces."
+                message = "To begin, move the device around the area to improve subsequent measurement accuracy."
                 status = "initializing"
                 arReady = false
                 
             case .limited(.relocalizing):
-                message = "Move the device around to detect surfaces."
+                message = "To begin, move the device around the area to improve subsequent measurement accuracy."
                 status = "initializing"
                 arReady = false
                 

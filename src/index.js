@@ -121,7 +121,9 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    * Lastly, if there were 2 points already, it is the same as calling clear and error is "Cleared"
    *
    * Resolves {added: bool, error: str, distance: number, cameraDistance: number}
-   * error will be a string if the add point operation failed (due to not enough precision or invalid state)
+   * error will be a string if the add point operation failed.
+   * Note that errors due to min/max range will still be allowed and not reported, use
+   * onMeasuringStatusChange instead to prevent adding points in an partial-error state.
    *
    * distance: distance in meters (regarldess of unit)
    * cameraDistance: camera distance in meters
