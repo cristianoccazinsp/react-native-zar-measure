@@ -271,7 +271,9 @@ import ARKit
         }
         
         
-        DispatchQueue.main.async {
+        DispatchQueue.main.async { [weak self] in
+            
+            guard let self = self else {return}
             
             // double check for race conditions
             if self.spheres.count > 1 || !self.arReady {

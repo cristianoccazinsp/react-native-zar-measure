@@ -51,8 +51,13 @@ class ZarMeasureViewManager: RCTViewManager {
     func clear(_ node:NSNumber, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 11.3, *) {
-            DispatchQueue.main.async {
-                let view = self.bridge.uiManager.view(forReactTag: node) as! ZarMeasureView
+            DispatchQueue.main.async { [weak self] in
+                
+                guard let view = self?.bridge.uiManager.view(forReactTag: node) as? ZarMeasureView else {
+                    resolve(nil)
+                    return;
+                }
+                
                 view.clear()
                 resolve(nil)
             }
@@ -66,8 +71,12 @@ class ZarMeasureViewManager: RCTViewManager {
     func addPoint(_ node:NSNumber, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 11.3, *) {
-            DispatchQueue.main.async {
-                let view = self.bridge.uiManager.view(forReactTag: node) as! ZarMeasureView
+            DispatchQueue.main.async { [weak self] in
+                
+                guard let view = self?.bridge.uiManager.view(forReactTag: node) as? ZarMeasureView else {
+                    resolve(["added": false, "error": "Invalid View Tag"])
+                    return;
+                }
                 
                 let (err, distance, cameraDistance) = view.addPoint()
                 
@@ -89,8 +98,12 @@ class ZarMeasureViewManager: RCTViewManager {
     func takePicture(_ node:NSNumber, imagePath path: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 11.3, *) {
-            DispatchQueue.main.async {
-                let view = self.bridge.uiManager.view(forReactTag: node) as! ZarMeasureView
+            DispatchQueue.main.async { [weak self] in
+                
+                guard let view = self?.bridge.uiManager.view(forReactTag: node) as? ZarMeasureView else {
+                    resolve(["error": "Invalid View Tag"])
+                    return;
+                }
                 
                 view.takePicture(path){ err in
                     resolve(["error": err])
