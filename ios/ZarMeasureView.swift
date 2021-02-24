@@ -129,6 +129,11 @@ import ARKit
     private var sceneView = ARSCNView()
     private var spheres: [SCNNode] = []
     private var measurementLabel = UILabel()
+    private let hitTestTypes : ARHitTestResult.ResultType = [
+        .estimatedHorizontalPlane,
+        .estimatedVerticalPlane,
+        .featurePoint
+    ]
     
     // colors good enough for white surfaces
     private let nodeColor : UIColor = UIColor(red: 255/255.0, green: 153/255.0, blue: 0, alpha: 1)
@@ -375,7 +380,7 @@ import ARKit
         }
         
         // Searches for real world objects such as surfaces and filters out flat surfaces
-        let hitTest = sceneView.hitTest(location, types: [.estimatedHorizontalPlane, .estimatedVerticalPlane, .featurePoint])
+        let hitTest = sceneView.hitTest(location, types: hitTestTypes)
         
         // Assigns the most accurate result to a constant if it is non-nil
         guard let result = hitTest.last else {
