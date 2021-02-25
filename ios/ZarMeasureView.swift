@@ -62,12 +62,7 @@ import ARKit
                 //self.showMeasure(distance)
                 measurementLabel.text = ""
                 
-                let textNode = TextNode(between: last.position, and: sphere.position, textLabel: self.getMeasureString(distance), textColor: self.nodeColor)
-                
-                self.sceneView.scene.rootNode.addChildNode(textNode)
-                
                 let measureLine = LineNode(from: last.position, to: sphere.position, lineColor: self.textColor)
-
 
                 // remove any previous line, if any
                 // and add new one
@@ -81,6 +76,11 @@ import ARKit
                 // add line
                 lineNode = measureLine
                 self.sceneView.scene.rootNode.addChildNode(measureLine)
+                
+                // add text node last
+                let textNode = TextNode(between: last.position, and: sphere.position, textLabel: self.getMeasureString(distance), textColor: self.nodeColor)
+                
+                self.sceneView.scene.rootNode.addChildNode(textNode)
                 
                 return (nil, distance, result!.distance)
 
@@ -595,6 +595,9 @@ class TextNode: SCNNode {
         text.firstMaterial?.diffuse.contents = color
         text.firstMaterial?.isDoubleSided = true
         
+        // allows it to stay on top of lines and other stuff
+        text.firstMaterial?.readsFromDepthBuffer = false
+        text.firstMaterial?.writesToDepthBuffer = false
         
         let x = (vectorA.x + vectorB.x) / 2
         let y = (vectorA.y + vectorB.y) / 2
@@ -605,13 +608,39 @@ class TextNode: SCNNode {
         let tx = (max.x + min.x) / 2.0
         let ty = (max.y + min.y) / 2.0
         let tz = Float(extrusionDepth) / 2.0
-    
         
+        // main node positioning
         self.pivot = SCNMatrix4MakeTranslation(tx, ty, tz)
         self.geometry = text
         self.scale = textNodeScale
         self.position = SCNVector3(x, y, z)
         self.constraints = [constraint]
+        self.renderingOrder = 10
+        
+        
+        // Add background
+        let bound = SCNVector3Make(max.x - min.x,
+                                   max.y - min.y,
+                                   max.z - min.z);
+
+        let plane = SCNPlane(width: CGFloat(bound.x + 3),
+                            height: CGFloat(bound.y + 3))
+        
+        plane.cornerRadius = 5
+        plane.firstMaterial?.diffuse.contents = UIColor.white.withAlphaComponent(0.9)
+        plane.firstMaterial?.readsFromDepthBuffer = false
+        plane.firstMaterial?.writesToDepthBuffer = false
+
+        let planeNode = SCNNode(geometry: plane)
+        planeNode.position = SCNVector3(
+            CGFloat(min.x) + CGFloat(bound.x) / 2,
+            CGFloat(min.y) + CGFloat(bound.y) / 2,
+            CGFloat(min.z) - extrusionDepth
+        )
+        
+        self.addChildNode(planeNode)
+        
+        
     }
     
     required init?(coder aDecoder: NSCoder) {
