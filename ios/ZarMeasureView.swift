@@ -25,10 +25,14 @@ import ARKit
     {
         // no need for locks since everything runs on the UI thread
         spheres.removeAll()
-        while let n = self.sceneView.scene.rootNode.childNodes.first { n.removeFromParentNode()
-        }
         lineNode?.removeFromParentNode()
         sphereNode?.removeFromParentNode()
+        textNode?.removeFromParentNode()
+        while let n = self.sceneView.scene.rootNode.childNodes.first { n.removeFromParentNode()
+        }
+        lineNode = nil
+        sphereNode = nil
+        textNode = nil
         measurementLabel.text = ""
     }
     
@@ -78,7 +82,8 @@ import ARKit
                 self.sceneView.scene.rootNode.addChildNode(measureLine)
                 
                 // add text node last
-                let textNode = TextNode(between: last.position, and: sphere.position, textLabel: self.getMeasureString(distance), textColor: self.nodeColor)
+                let textNode = TextNode(between: last.position, and: sphere.position, textLabel: self.getMeasureString(distance), textColor: self.nodeColor, sceneView: self.sceneView)
+                self.textNode = textNode
                 
                 self.sceneView.scene.rootNode.addChildNode(textNode)
                 
@@ -143,6 +148,7 @@ import ARKit
     
     private var lineNode : LineNode? = nil
     private var sphereNode: SCNNode? = nil
+    private var textNode : TextNode? = nil
     private var arReady : Bool = false
     private var arStatus : String = "off"
     private var measuringStatus : String = "off"
@@ -271,17 +277,21 @@ import ARKit
     // renderer callback method
     public func renderer(_ renderer: SCNSceneRenderer, updateAtTime time: TimeInterval) {
         
-        if spheres.count > 1 || !arReady {
-            return
-        }
-        
-        
         DispatchQueue.main.async { [weak self] in
             
             guard let self = self else {return}
             
-            // double check for race conditions
-            if self.spheres.count > 1 || !self.arReady {
+            if !self.arReady{
+                return
+            }
+            
+            // update text node if it is rendered
+            if(self.textNode != nil){
+                self.textNode?.setScale(sceneView: self.sceneView)
+            }
+            
+            // if we have more than 2 nodes, no need to do anything else
+            if self.spheres.count > 1 {
                 return
             }
             
@@ -474,19 +484,6 @@ import ARKit
     }
 }
 
-// This is needed so the view uses the parent's space
-// no longer needed, just use layoutSubviews
-//private extension UIView {
-//    func add(view: UIView) {
-//        view.translatesAutoresizingMaskIntoConstraints = false
-//        addSubview(view)
-//        let views = ["view": view]
-//        let hConstraints = NSLayoutConstraint.constraints(withVisualFormat: "|[view]|", options: [], metrics: nil, views: views)
-//        let vConstraints = NSLayoutConstraint.constraints(withVisualFormat: "V:|[view]|", options: [], metrics: nil, views: views)
-//        self.addConstraints(hConstraints)
-//        self.addConstraints(vConstraints)
-//    }
-//}
 
 extension SCNNode {
     
@@ -582,9 +579,8 @@ class SphereNode: SCNNode {
 class TextNode: SCNNode {
     
     private let extrusionDepth: CGFloat = 0.1
-    private let textNodeScale = SCNVector3Make(0.01, 0.01, 0.01)
     
-    init(between vectorA: SCNVector3, and vectorB: SCNVector3, textLabel label: String, textColor color: UIColor) {
+    init(between vectorA: SCNVector3, and vectorB: SCNVector3, textLabel label: String, textColor color: UIColor, sceneView view : ARSCNView) {
         super.init()
         
         let constraint = SCNBillboardConstraint()
@@ -612,10 +608,10 @@ class TextNode: SCNNode {
         // main node positioning
         self.pivot = SCNMatrix4MakeTranslation(tx, ty, tz)
         self.geometry = text
-        self.scale = textNodeScale
         self.position = SCNVector3(x, y, z)
         self.constraints = [constraint]
         self.renderingOrder = 10
+        self.setScale(sceneView: view)
         
         
         // Add background
@@ -639,8 +635,15 @@ class TextNode: SCNNode {
         )
         
         self.addChildNode(planeNode)
-        
-        
+    }
+    
+    func setScale(sceneView view : ARSCNView){
+        guard let pov = view.pointOfView else {
+            return
+        }
+        let distance = pov.distance(to: self)
+        let scale = Float((CGFloat(0.01) * distance))
+        self.scale = SCNVector3Make(scale, scale, scale)
     }
     
     required init?(coder aDecoder: NSCoder) {
