@@ -26,12 +26,12 @@ import ARKit
         // no need for locks since everything runs on the UI thread
         spheres.removeAll()
         lineNode?.removeFromParentNode()
-        sphereNode?.removeFromParentNode()
+        targetNode?.removeFromParentNode()
         textNode?.removeFromParentNode()
         while let n = self.sceneView.scene.rootNode.childNodes.first { n.removeFromParentNode()
         }
         lineNode = nil
-        sphereNode = nil
+        targetNode = nil
         textNode = nil
         measurementLabel.text = ""
     }
@@ -71,7 +71,7 @@ import ARKit
                 // remove any previous line, if any
                 // and add new one
                 lineNode?.removeFromParentNode()
-                sphereNode?.removeFromParentNode()
+                targetNode?.removeFromParentNode()
 
                 // Adds a second sphere to the array
                 spheres.append(sphere)
@@ -134,11 +134,6 @@ import ARKit
     private var sceneView = ARSCNView()
     private var spheres: [SCNNode] = []
     private var measurementLabel = UILabel()
-    private let hitTestTypes : ARHitTestResult.ResultType = [
-        .estimatedHorizontalPlane,
-        .estimatedVerticalPlane,
-        .featurePoint
-    ]
     
     // colors good enough for white surfaces
     private let nodeColor : UIColor = UIColor(red: 255/255.0, green: 153/255.0, blue: 0, alpha: 1)
@@ -147,7 +142,7 @@ import ARKit
     private let fontSize : CGFloat = 16
     
     private var lineNode : LineNode? = nil
-    private var sphereNode: SCNNode? = nil
+    private var targetNode: TargetNode? = nil
     private var textNode : TextNode? = nil
     private var arReady : Bool = false
     private var arStatus : String = "off"
@@ -205,7 +200,7 @@ import ARKit
             // Create a session configuration
             let configuration = ARWorldTrackingConfiguration()
             
-            configuration.planeDetection = [.horizontal, .vertical]
+            configuration.planeDetection = [.vertical, .horizontal]
             
             // this should technically use Lidar sensors and greatly
             // improve accuracy
@@ -217,7 +212,7 @@ import ARKit
                 // Fallback on earlier versions
             }
             
-            sceneView.preferredFramesPerSecond = 30
+            //sceneView.preferredFramesPerSecond = 30
             sceneView.automaticallyUpdatesLighting = true
             //sceneView.debugOptions = [.showFeaturePoints]
             sceneView.showsStatistics = false
@@ -275,6 +270,7 @@ import ARKit
         updateSessionInfoLabel(for: session.currentFrame!, trackingState: camera.trackingState)
     }
     
+    
     // renderer callback method
     public func renderer(_ renderer: SCNSceneRenderer, updateAtTime time: TimeInterval) {
         
@@ -298,16 +294,17 @@ import ARKit
             
             let mStatus : String
             
-            let (err, currentPosition, _) = self.doHitTestOnExistingPlanes(self.sceneView.center)
+            let (err, currentPosition, result) = self.doHitTestOnExistingPlanes(self.sceneView.center)
             
+            
+            // remove previous nodes
+            self.lineNode?.removeFromParentNode()
+            self.lineNode = nil
+            self.targetNode?.removeFromParentNode()
+            self.targetNode = nil
             
             if (currentPosition != nil) {
-                
-                // remove previous nodes
-                self.lineNode?.removeFromParentNode()
-                self.sphereNode?.removeFromParentNode()
-                
-                
+            
                 // node color if there was an acceptable error
                 let color = err != nil ? self.nodeColorErr : self.nodeColor
                 
@@ -320,14 +317,14 @@ import ARKit
                     
                     self.sceneView.scene.rootNode.addChildNode(self.lineNode!)
                     
-                    // sphere node
-                    self.sphereNode = SphereNode(at: currentPosition!, color: color)
+                    // target node
+                    self.targetNode = TargetNode(at: currentPosition!, color: color)
                     
-                    self.sceneView.scene.rootNode.addChildNode(self.sphereNode!)
+                    self.sceneView.scene.rootNode.addChildNode(self.targetNode!)
                     
                     // only update label if there was no error
                     if(err == nil){
-                        self.showMeasure(self.sphereNode!.distance(to: start))
+                        self.showMeasure(self.targetNode!.distance(to: start))
                     }
                     
                 }
@@ -335,18 +332,16 @@ import ARKit
                 // else, just add a node
                 else{
                     // sphere node
-                    self.sphereNode = SphereNode(at: currentPosition!, color: color)
+                    self.targetNode = TargetNode(at: currentPosition!, color: color)
                     
-                    self.sceneView.scene.rootNode.addChildNode(self.sphereNode!)
+                    self.sceneView.scene.rootNode.addChildNode(self.targetNode!)
                 }
+                
+                self.targetNode?.setScaleAndAnchor(sceneView: self.sceneView, hitAnchor: result?.anchor)
                 
                 mStatus = err == nil ? "ready" : "error"
             }
             else{
-                // remove previous nodes
-                self.lineNode?.removeFromParentNode()
-                self.sphereNode?.removeFromParentNode()
-                
                 mStatus = "error"
             }
             
@@ -390,14 +385,46 @@ import ARKit
             return ("Not Ready", nil, nil)
         }
         
-        // Searches for real world objects such as surfaces and filters out flat surfaces
-        let hitTest = sceneView.hitTest(location, types: hitTestTypes)
+        // Search with various options. Without features, it will be hard to lock on
+        // certain surfaces
+        let hitTest = sceneView.hitTest(location, types: [.existingPlaneUsingGeometry, .existingPlaneUsingExtent, .featurePoint])
         
         // Assigns the most accurate result to a constant if it is non-nil
         guard let result = hitTest.last else {
-            measurementLabel.text = "Please check your lightning and make sure you are not too far from the surface."
             
+            measurementLabel.text = "Please check your lightning and make sure you are not too far from the surface."
             return ("Detection failed", nil, nil)
+            
+            // if we failed to check for a valid plane detection
+            // use features to report position
+            
+//            let hitTestFeature = sceneView.hitTest(location, types: .featurePoint)
+//
+//            if let resultFeature = hitTestFeature.last {
+//
+//                let hitPos = SCNVector3.positionFrom(matrix: resultFeature.worldTransform)
+//
+//                // Also do distance checks here
+//                if(resultFeature.distance < self.minDistanceCamera){
+//                    measurementLabel.text = "Make sure you are not too close to the surface, or improve lightning conditions."
+//
+//                    return ("Detection failed: too close to the surface", nil, nil)
+//                }
+//
+//                if(resultFeature.distance > self.maxDistanceCamera){
+//                    measurementLabel.text = "Make sure you are not too far from the surface, or improve lightning conditions."
+//
+//                    return ("Detection failed: too far from the surface", hitPos, resultFeature)
+//                }
+//
+//                measurementLabel.text = "Make sure you are not too far from the surface, and move the device slightly to improve detection."
+//
+//                return ("Detection failed, planes not found.", hitPos, resultFeature)
+//            }
+//            else{
+//                measurementLabel.text = "Please check your lightning and make sure you are not too far from the surface."
+//                return ("Detection failed", nil, nil)
+//            }
         }
         
         
@@ -550,19 +577,13 @@ class SphereNode: SCNNode {
     init(at position: SCNVector3, color nodeColor: UIColor) {
         super.init()
         
-        // Creates an SCNSphere with a radius
-        let sphere = SCNSphere(radius: 0.02)
-        
-        // Creates a material that is recognized by SceneKit
+        // material
         let material = SCNMaterial()
-        
-        // Add color
         material.diffuse.contents = nodeColor
+        material.lightingModel = .constant
         
-        // Creates realistic shadows around the sphere
-        material.lightingModel = .blinn
-        
-        // Wraps the newly made material around the sphere
+        // Creates an SCNSphere with a radius
+        let sphere = SCNSphere(radius: 0.015)
         sphere.firstMaterial = material
         
         // Positions the node based on the passed in position
@@ -576,7 +597,77 @@ class SphereNode: SCNNode {
 }
 
 
-@available(iOS 11.0, *)
+@available(iOS 11.3, *)
+class TargetNode: SCNNode {
+        
+    init(at position: SCNVector3, color nodeColor: UIColor) {
+        super.init()
+        
+        // add circle/donut
+        let donutMaterial = SCNMaterial()
+        donutMaterial.diffuse.contents = nodeColor.withAlphaComponent(0.9)
+        donutMaterial.lightingModel = .constant
+        
+        let donut = SCNTube(innerRadius: 0.1 - 0.005, outerRadius: 0.1, height: 0.001)//SCNTube(outerRadius: 0.1, innerRadius: 0.002, height: 0)
+        donut.firstMaterial = donutMaterial
+        
+        let donutNode = SCNNode(geometry: donut)
+        donutNode.name = "donut"
+        self.addChildNode(donutNode)
+        
+        
+        // Add sphere
+        let sphereMaterial = SCNMaterial()
+        sphereMaterial.diffuse.contents = nodeColor
+        sphereMaterial.lightingModel = .constant
+        
+        let sphere = SCNSphere(radius: 0.015)
+        sphere.firstMaterial = sphereMaterial
+        
+        let sphereNode = SCNNode(geometry: sphere)
+        self.addChildNode(sphereNode)
+        
+        // Positions the node based on the passed in position
+        self.position = position
+    }
+    
+    func setScaleAndAnchor(sceneView view : ARSCNView, hitAnchor anchor : ARAnchor?){
+//        if let pov = view.pointOfView {
+//
+//        }
+        
+        guard let donut = self.childNode(withName: "donut", recursively: false) else {return}
+        
+        if let _anchor = anchor as? ARPlaneAnchor {
+            guard let anchoredNode = view.node(for: _anchor) else { return }
+            
+            // rotate our donut based on detected anchor
+            donut.eulerAngles.x = anchoredNode.eulerAngles.x
+            donut.eulerAngles.y = anchoredNode.eulerAngles.y
+            donut.eulerAngles.z = anchoredNode.eulerAngles.z
+            
+            //NSLog("Euler: \(anchoredNode.eulerAngles)")
+            //donut.rotation = anchoredNode.rotation
+            
+        }
+        else{
+            //self.eulerAngles.x = 0
+            //self.childNode(withName: "donut", recursively: false)?.eulerAngles.x = 0
+            //NSLog("No anchor")
+            donut.eulerAngles.x = 0
+            donut.eulerAngles.y = 0
+            donut.eulerAngles.z = 0
+
+        }
+    }
+    
+    required init?(coder aDecoder: NSCoder) {
+        super.init(coder: aDecoder)
+    }
+}
+
+
+@available(iOS 11.3, *)
 class TextNode: SCNNode {
     
     private let extrusionDepth: CGFloat = 0.1
