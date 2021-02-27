@@ -401,14 +401,14 @@ import ARKit
         }
         
         
-        // for distance errors, still return hit point
-        // the UI may decide to show or not the values
+        // for distance errors, still return hit point for max error
+        // so we allow rendering anyways
         let hitPos = SCNVector3.positionFrom(matrix: result.worldTransform)
         
         if(result.distance < self.minDistanceCamera){
             measurementLabel.text = "Make sure you are not too close to the surface, or improve lightning conditions."
             
-            return ("Detection failed: too close to the surface", hitPos, result)
+            return ("Detection failed: too close to the surface", nil, nil)
         }
         
         if(result.distance > self.maxDistanceCamera){

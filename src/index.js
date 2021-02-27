@@ -122,8 +122,6 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    *
    * Resolves {added: bool, error: str, distance: number, cameraDistance: number}
    * error will be a string if the add point operation failed.
-   * Note that errors due to min/max range will still be allowed and not reported, use
-   * onMeasuringStatusChange instead to prevent adding points in an partial-error state.
    *
    * distance: distance in meters (regarldess of unit)
    * cameraDistance: camera distance in meters
