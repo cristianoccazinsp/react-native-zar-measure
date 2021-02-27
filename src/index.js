@@ -44,6 +44,14 @@ type ZarMeasureViewProps = {
    */
   maxDistanceCamera: number,
 
+  /** Uses AR feature detection to do target/hit detection.
+   * Incrases speed and improves detection under difficult surfaces, but reduces
+   * accuracy.
+   *
+   * default: true
+   */
+  useFeatureDetection: boolean,
+
   /**
    * Callback fired when authorization has changed
    *
@@ -88,6 +96,7 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     units: 'm',
     minDistanceCamera: 0.05,
     maxDistanceCamera: 5,
+    useFeatureDetection: true,
     onCameraStatusChange: dummy,
     onARStatusChange: dummy,
     onMeasuringStatusChange: dummy,

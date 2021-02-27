@@ -12,6 +12,7 @@ import ARKit
     @objc public var units: String = "m"
     @objc public var minDistanceCamera: CGFloat = 0.05
     @objc public var maxDistanceCamera: CGFloat = 5
+    @objc public var useFeatureDetection: Bool = true
     @objc public var onARStatusChange: RCTDirectEventBlock? = nil
     @objc public var onMeasuringStatusChange: RCTDirectEventBlock? = nil
     @objc public var onMountError: RCTDirectEventBlock? = nil
@@ -278,10 +279,6 @@ import ARKit
             
             guard let self = self else {return}
             
-            if !self.arReady{
-                return
-            }
-            
             // update text node if it is rendered
             if(self.textNode != nil){
                 self.textNode?.setScale(sceneView: self.sceneView)
@@ -292,16 +289,23 @@ import ARKit
                 return
             }
             
-            let mStatus : String
-            
-            let (err, currentPosition, result) = self.doHitTestOnExistingPlanes(self.sceneView.center)
-            
             
             // remove previous nodes
             self.lineNode?.removeFromParentNode()
             self.lineNode = nil
             self.targetNode?.removeFromParentNode()
             self.targetNode = nil
+            
+            
+            if !self.arReady{
+                return
+            }
+            
+            
+            let mStatus : String
+            
+            let (err, currentPosition, result) = self.doHitTestOnExistingPlanes(self.sceneView.center)
+            
             
             if (currentPosition != nil) {
             
@@ -385,9 +389,9 @@ import ARKit
             return ("Not Ready", nil, nil)
         }
         
-        // Search with various options. Without features, it will be hard to lock on
-        // certain surfaces
-        let hitTest = sceneView.hitTest(location, types: [.existingPlaneUsingGeometry, .existingPlaneUsingExtent, .featurePoint])
+        // Search with various options
+        // using features increases speed but decreases accuracy
+        let hitTest = sceneView.hitTest(location, types: self.useFeatureDetection ? [.existingPlaneUsingGeometry, .existingPlaneUsingExtent, .featurePoint] : [.existingPlaneUsingGeometry, .existingPlaneUsingExtent])
         
         // Assigns the most accurate result to a constant if it is non-nil
         guard let result = hitTest.last else {
