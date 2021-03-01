@@ -217,7 +217,7 @@ import ARKit
             sceneView.automaticallyUpdatesLighting = true
             //sceneView.debugOptions = [.showFeaturePoints]
             sceneView.showsStatistics = false
-            sceneView.antialiasingMode = .multisampling4X
+            sceneView.antialiasingMode = .multisampling2X
             
             // Set the view's delegate and session delegate
             sceneView.delegate = self
