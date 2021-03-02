@@ -323,7 +323,7 @@ import ARKit
                     
                     // target node exists, update it
                     if let target = self.targetNode{
-                        target.updatePosition(to: position)
+                        target.updatePosition(to: position, color: color)
                     }
                     
                     // otherwise, re-create it
@@ -345,7 +345,7 @@ import ARKit
                     
                     // target node exists, update it
                     if let target = self.targetNode{
-                        target.updatePosition(to: position)
+                        target.updatePosition(to: position, color: color)
                     }
                     
                     // otherwise, re-create it
@@ -410,7 +410,7 @@ import ARKit
         
         // Search with various options
         // using features increases speed but decreases accuracy
-        let hitTest = sceneView.hitTest(location, types: self.useFeatureDetection ? [.existingPlaneUsingExtent, .estimatedVerticalPlane, .estimatedHorizontalPlane, .featurePoint] : [.existingPlaneUsingExtent, .estimatedVerticalPlane, .estimatedHorizontalPlane])
+        let hitTest = sceneView.hitTest(location, types: self.useFeatureDetection ? [.existingPlaneUsingGeometry, .existingPlaneUsingExtent, .estimatedVerticalPlane, .estimatedHorizontalPlane, .featurePoint] : [.existingPlaneUsingGeometry, .existingPlaneUsingExtent, .estimatedVerticalPlane, .estimatedHorizontalPlane])
         
         let _result : ARHitTestResult?
         
@@ -437,6 +437,44 @@ import ARKit
             return ("Detection failed", nil, nil)
         }
         
+//        var i = 0
+//        for r in hitTest {
+//            NSLog("\(i): \(r.distance) \(String(describing: r.anchor as? ARPlaneAnchor)))")
+//            switch r.type{
+//                case .estimatedVerticalPlane:
+//                    NSLog("\t.estimatedVerticalPlane")
+//                case .estimatedHorizontalPlane:
+//                    NSLog("\t.estimatedHorizontalPlane")
+//                case .existingPlaneUsingExtent:
+//                    NSLog("\t.existingPlaneUsingExtent")
+//                case .existingPlaneUsingGeometry:
+//                    NSLog("\t.existingPlaneUsingGeometry")
+//                case .featurePoint:
+//                    NSLog("\t.featurePoint")
+//                case.existingPlane:
+//                    NSLog("\t.existingPlane")
+//                default:
+//                    NSLog("\tdefault")
+//            }
+//            i += 1
+//        }
+//
+//        switch result.type{
+//            case .estimatedVerticalPlane:
+//                NSLog(".estimatedVerticalPlane")
+//            case .estimatedHorizontalPlane:
+//                NSLog(".estimatedHorizontalPlane")
+//            case .existingPlaneUsingExtent:
+//                NSLog(".existingPlaneUsingExtent")
+//            case .existingPlaneUsingGeometry:
+//                NSLog(".existingPlaneUsingGeometry")
+//            case .featurePoint:
+//                NSLog(".featurePoint")
+//            case.existingPlane:
+//                NSLog(".existingPlane")
+//            default:
+//                NSLog("default")
+//        }
         
         // for distance errors, still return hit point for max error
         // so we allow rendering anyways
@@ -617,7 +655,7 @@ class TargetNode: SCNNode {
         donutMaterial.diffuse.contents = nodeColor.withAlphaComponent(0.9)
         donutMaterial.lightingModel = .constant
         
-        let donut = SCNTube(innerRadius: 0.1 - 0.005, outerRadius: 0.1, height: 0.001)
+        let donut = SCNTube(innerRadius: 0.08 - 0.005, outerRadius: 0.08, height: 0.001)
         donut.firstMaterial = donutMaterial
         
         let donutNode = SCNNode(geometry: donut)
@@ -633,6 +671,7 @@ class TargetNode: SCNNode {
         sphere.firstMaterial = sphereMaterial
         
         let sphereNode = SCNNode(geometry: sphere)
+        sphereNode.name = "sphere"
         self.addChildNode(sphereNode)
         
         // Positions the node based on the passed in position
@@ -640,8 +679,15 @@ class TargetNode: SCNNode {
     }
     
     // update the node position so we don't need to re-create it every time
-    func updatePosition(to position: SCNVector3){
+    // and optionally its color
+    func updatePosition(to position: SCNVector3, color nodeColor: UIColor?){
         self.position = position
+        
+        if let color = nodeColor {
+            self.childNode(withName: "donut", recursively: false)?.geometry?.firstMaterial?.diffuse.contents = color.withAlphaComponent(0.9)
+            
+            self.childNode(withName: "sphere", recursively: false)?.geometry?.firstMaterial?.diffuse.contents = color
+        }
     }
     
     func setScaleAndAnchor(sceneView view : ARSCNView, hitResult hit: ARHitTestResult){
