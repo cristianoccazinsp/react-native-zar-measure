@@ -69,10 +69,11 @@ import ARKit
                 
                 let measureLine = LineNode(from: last.position, to: sphere.position, lineColor: self.textColor)
 
-                // remove any previous line, if any
-                // and add new one
+                // remove any previous target and lines, if any.
                 lineNode?.removeFromParentNode()
+                lineNode = nil
                 targetNode?.removeFromParentNode()
+                targetNode = nil
 
                 // Adds a second sphere to the array
                 spheres.append(sphere)
@@ -289,15 +290,15 @@ import ARKit
                 return
             }
             
-            
-            // remove previous nodes
+            // always remoe this since we re-create it every time
             self.lineNode?.removeFromParentNode()
             self.lineNode = nil
-            self.targetNode?.removeFromParentNode()
-            self.targetNode = nil
-            
             
             if !self.arReady{
+                // remove previous target as well
+                self.targetNode?.removeFromParentNode()
+                self.targetNode = nil
+                
                 return
             }
             
@@ -307,7 +308,7 @@ import ARKit
             let (err, currentPosition, result) = self.doHitTestOnExistingPlanes(self.sceneView.center)
             
             
-            if (currentPosition != nil) {
+            if let position = currentPosition {
             
                 // node color if there was an acceptable error
                 let color = err != nil ? self.nodeColorErr : self.nodeColor
@@ -317,14 +318,20 @@ import ARKit
                 if let start = self.spheres.first {
                     
                     // line node
-                    self.lineNode = LineNode(from: start.position, to: currentPosition!, lineColor: color)
-                    
+                    self.lineNode = LineNode(from: start.position, to: position, lineColor: color)
                     self.sceneView.scene.rootNode.addChildNode(self.lineNode!)
                     
-                    // target node
-                    self.targetNode = TargetNode(at: currentPosition!, color: color)
+                    // target node exists, update it
+                    if let target = self.targetNode{
+                        target.updatePosition(to: position)
+                    }
                     
-                    self.sceneView.scene.rootNode.addChildNode(self.targetNode!)
+                    // otherwise, re-create it
+                    else{
+                        self.targetNode = TargetNode(at: position, color: color)
+                        self.sceneView.scene.rootNode.addChildNode(self.targetNode!)
+                    }
+                    
                     
                     // only update label if there was no error
                     if(err == nil){
@@ -333,19 +340,30 @@ import ARKit
                     
                 }
                 
-                // else, just add a node
+                // else, just add a target node
                 else{
-                    // sphere node
-                    self.targetNode = TargetNode(at: currentPosition!, color: color)
                     
-                    self.sceneView.scene.rootNode.addChildNode(self.targetNode!)
+                    // target node exists, update it
+                    if let target = self.targetNode{
+                        target.updatePosition(to: position)
+                    }
+                    
+                    // otherwise, re-create it
+                    else{
+                        self.targetNode = TargetNode(at: position, color: color)
+                        self.sceneView.scene.rootNode.addChildNode(self.targetNode!)
+                    }
                 }
                 
-                self.targetNode?.setScaleAndAnchor(sceneView: self.sceneView, hitAnchor: result?.anchor)
+                self.targetNode?.setScaleAndAnchor(sceneView: self.sceneView, hitResult: result!)
                 
                 mStatus = err == nil ? "ready" : "error"
             }
             else{
+                // also remove target if error
+                self.targetNode?.removeFromParentNode()
+                self.targetNode = nil
+                
                 mStatus = "error"
             }
             
@@ -383,6 +401,7 @@ import ARKit
     // Returns (error, point, hitTestResult)
     // if there was an error, error will be a non nil string
     // and the rest nil. Otherwise, a vector and hit result are returned
+    // if point is not nil, hitResult is guaranteed to be not nil
     private func doHitTestOnExistingPlanes(_ location: CGPoint) -> (String?, SCNVector3?, ARHitTestResult?) {
         
         if(!arReady){
@@ -391,44 +410,31 @@ import ARKit
         
         // Search with various options
         // using features increases speed but decreases accuracy
-        let hitTest = sceneView.hitTest(location, types: self.useFeatureDetection ? [.existingPlaneUsingGeometry, .existingPlaneUsingExtent, .featurePoint] : [.existingPlaneUsingGeometry, .existingPlaneUsingExtent])
+        let hitTest = sceneView.hitTest(location, types: self.useFeatureDetection ? [.existingPlaneUsingExtent, .estimatedVerticalPlane, .estimatedHorizontalPlane, .featurePoint] : [.existingPlaneUsingExtent, .estimatedVerticalPlane, .estimatedHorizontalPlane])
+        
+        let _result : ARHitTestResult?
+        
+        
+        // Try to get the most accurate results first.
+        // That is, the result has an anchor, and is further than our min distance
+        if let firstAnchor = hitTest.first(where: {($0.anchor as? ARPlaneAnchor) != nil && $0.distance >= self.minDistanceCamera}) {
+            _result = firstAnchor
+        }
+        else{
+            // else, fallback to filter the first one further away
+            if let firstMatch = hitTest.first(where: {$0.distance >= self.minDistanceCamera}) {
+                _result = firstMatch
+            }
+            else{
+                // lastly, just use the first result
+                _result = hitTest.first
+            }
+        }
         
         // Assigns the most accurate result to a constant if it is non-nil
-        guard let result = hitTest.last else {
-            
+        guard let result = _result else {
             measurementLabel.text = "Please check your lightning and make sure you are not too far from the surface."
             return ("Detection failed", nil, nil)
-            
-            // if we failed to check for a valid plane detection
-            // use features to report position
-            
-//            let hitTestFeature = sceneView.hitTest(location, types: .featurePoint)
-//
-//            if let resultFeature = hitTestFeature.last {
-//
-//                let hitPos = SCNVector3.positionFrom(matrix: resultFeature.worldTransform)
-//
-//                // Also do distance checks here
-//                if(resultFeature.distance < self.minDistanceCamera){
-//                    measurementLabel.text = "Make sure you are not too close to the surface, or improve lightning conditions."
-//
-//                    return ("Detection failed: too close to the surface", nil, nil)
-//                }
-//
-//                if(resultFeature.distance > self.maxDistanceCamera){
-//                    measurementLabel.text = "Make sure you are not too far from the surface, or improve lightning conditions."
-//
-//                    return ("Detection failed: too far from the surface", hitPos, resultFeature)
-//                }
-//
-//                measurementLabel.text = "Make sure you are not too far from the surface, and move the device slightly to improve detection."
-//
-//                return ("Detection failed, planes not found.", hitPos, resultFeature)
-//            }
-//            else{
-//                measurementLabel.text = "Please check your lightning and make sure you are not too far from the surface."
-//                return ("Detection failed", nil, nil)
-//            }
         }
         
         
@@ -539,7 +545,6 @@ extension SCNVector3 {
     }
 }
 
-
 class LineNode: SCNNode {
     
     init(from vectorA: SCNVector3, to vectorB: SCNVector3, lineColor color: UIColor) {
@@ -555,14 +560,14 @@ class LineNode: SCNNode {
         let nodeZAlign = SCNNode()
         nodeZAlign.eulerAngles.x = Float.pi/2
         
-        let box = SCNBox(width: 0.004, height: height, length: 0.004, chamferRadius: 0)
+        let box = SCNBox(width: 0.003, height: height, length: 0.003, chamferRadius: 0)
         let material = SCNMaterial()
         material.diffuse.contents = color
         box.materials = [material]
         
         
         let nodeLine = SCNNode(geometry: box)
-        nodeLine.position.y = Float(-height/2) + 0.004
+        nodeLine.position.y = Float(-height/2) + 0.003
         nodeZAlign.addChildNode(nodeLine)
         
         self.addChildNode(nodeZAlign)
@@ -587,7 +592,7 @@ class SphereNode: SCNNode {
         material.lightingModel = .constant
         
         // Creates an SCNSphere with a radius
-        let sphere = SCNSphere(radius: 0.015)
+        let sphere = SCNSphere(radius: 0.01)
         sphere.firstMaterial = material
         
         // Positions the node based on the passed in position
@@ -612,20 +617,19 @@ class TargetNode: SCNNode {
         donutMaterial.diffuse.contents = nodeColor.withAlphaComponent(0.9)
         donutMaterial.lightingModel = .constant
         
-        let donut = SCNTube(innerRadius: 0.1 - 0.005, outerRadius: 0.1, height: 0.001)//SCNTube(outerRadius: 0.1, innerRadius: 0.002, height: 0)
+        let donut = SCNTube(innerRadius: 0.1 - 0.005, outerRadius: 0.1, height: 0.001)
         donut.firstMaterial = donutMaterial
         
         let donutNode = SCNNode(geometry: donut)
         donutNode.name = "donut"
         self.addChildNode(donutNode)
         
-        
         // Add sphere
         let sphereMaterial = SCNMaterial()
         sphereMaterial.diffuse.contents = nodeColor
         sphereMaterial.lightingModel = .constant
         
-        let sphere = SCNSphere(radius: 0.015)
+        let sphere = SCNSphere(radius: 0.01)
         sphere.firstMaterial = sphereMaterial
         
         let sphereNode = SCNNode(geometry: sphere)
@@ -635,14 +639,21 @@ class TargetNode: SCNNode {
         self.position = position
     }
     
-    func setScaleAndAnchor(sceneView view : ARSCNView, hitAnchor anchor : ARAnchor?){
+    // update the node position so we don't need to re-create it every time
+    func updatePosition(to position: SCNVector3){
+        self.position = position
+    }
+    
+    func setScaleAndAnchor(sceneView view : ARSCNView, hitResult hit: ARHitTestResult){
 //        if let pov = view.pointOfView {
-//
+//            let distance = pov.distance(to: self)
+//            let scale = Float((CGFloat(0.5) * distance))
+//            self.scale = SCNVector3Make(scale, scale, scale)
 //        }
         
         guard let donut = self.childNode(withName: "donut", recursively: false) else {return}
         
-        if let _anchor = anchor as? ARPlaneAnchor {
+        if let _anchor = hit.anchor as? ARPlaneAnchor {
             guard let anchoredNode = view.node(for: _anchor) else { return }
             
             // rotate our donut based on detected anchor
@@ -650,17 +661,29 @@ class TargetNode: SCNNode {
             donut.eulerAngles.y = anchoredNode.eulerAngles.y
             donut.eulerAngles.z = anchoredNode.eulerAngles.z
             
-            //NSLog("Euler: \(anchoredNode.eulerAngles)")
-            //donut.rotation = anchoredNode.rotation
             
         }
         else{
-            //self.eulerAngles.x = 0
-            //self.childNode(withName: "donut", recursively: false)?.eulerAngles.x = 0
-            //NSLog("No anchor")
-            donut.eulerAngles.x = 0
-            donut.eulerAngles.y = 0
-            donut.eulerAngles.z = 0
+            
+            // no anchor, check result type
+            // if it is estimated vertical, rotate
+            if(hit.type == .estimatedVerticalPlane){
+                
+                // set transform directly so we dont need to do math
+                // then restore values. This is needed since worldTransform doesnt provide eulerAngles
+                let dummy = SCNNode()
+                dummy.transform = SCNMatrix4(hit.worldTransform)
+                donut.eulerAngles.x = .pi / 2
+                donut.eulerAngles.y = dummy.eulerAngles.y
+                donut.eulerAngles.z = 0
+            }
+            
+            // in any other case, assume horizontal
+            else{
+                donut.eulerAngles.x = 0
+                donut.eulerAngles.y = 0
+                donut.eulerAngles.z = 0
+            }
 
         }
     }
