@@ -437,44 +437,6 @@ import ARKit
             return ("Detection failed", nil, nil)
         }
         
-//        var i = 0
-//        for r in hitTest {
-//            NSLog("\(i): \(r.distance) \(String(describing: r.anchor as? ARPlaneAnchor)))")
-//            switch r.type{
-//                case .estimatedVerticalPlane:
-//                    NSLog("\t.estimatedVerticalPlane")
-//                case .estimatedHorizontalPlane:
-//                    NSLog("\t.estimatedHorizontalPlane")
-//                case .existingPlaneUsingExtent:
-//                    NSLog("\t.existingPlaneUsingExtent")
-//                case .existingPlaneUsingGeometry:
-//                    NSLog("\t.existingPlaneUsingGeometry")
-//                case .featurePoint:
-//                    NSLog("\t.featurePoint")
-//                case.existingPlane:
-//                    NSLog("\t.existingPlane")
-//                default:
-//                    NSLog("\tdefault")
-//            }
-//            i += 1
-//        }
-//
-//        switch result.type{
-//            case .estimatedVerticalPlane:
-//                NSLog(".estimatedVerticalPlane")
-//            case .estimatedHorizontalPlane:
-//                NSLog(".estimatedHorizontalPlane")
-//            case .existingPlaneUsingExtent:
-//                NSLog(".existingPlaneUsingExtent")
-//            case .existingPlaneUsingGeometry:
-//                NSLog(".existingPlaneUsingGeometry")
-//            case .featurePoint:
-//                NSLog(".featurePoint")
-//            case.existingPlane:
-//                NSLog(".existingPlane")
-//            default:
-//                NSLog("default")
-//        }
         
         // for distance errors, still return hit point for max error
         // so we allow rendering anyways
