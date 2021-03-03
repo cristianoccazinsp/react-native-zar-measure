@@ -12,6 +12,7 @@ import ARKit
     @objc public var units: String = "m"
     @objc public var minDistanceCamera: CGFloat = 0.05
     @objc public var maxDistanceCamera: CGFloat = 5
+    @objc public var intersectDistance: CGFloat = 0.05
     @objc public var onARStatusChange: RCTDirectEventBlock? = nil
     @objc public var onMeasuringStatusChange: RCTDirectEventBlock? = nil
     @objc public var onMountError: RCTDirectEventBlock? = nil
@@ -62,7 +63,7 @@ import ARKit
     func addPoint(_ setCurrent : Bool) -> (String?, CGFloat?, CGFloat?)
     {
         
-        let (er, currentPosition, result) = self.doRayTestOnExistingPlanes()
+        let (er, currentPosition, result, _) = self.doRayTestOnExistingPlanes()
             
         if(currentPosition == nil || result == nil){
             return (er, nil, nil)
@@ -135,19 +136,14 @@ import ARKit
         
         takingPicture = true
         // temporary remove target nodes from view
-        targetNode?.removeFromParentNode()
-        lineNode?.removeFromParentNode()
+        targetNode?.isHidden = true
+        lineNode?.isHidden = true
         
         let image = sceneView.snapshot()
         
         // re add it back
-        if(targetNode != nil){
-            sceneView.scene.rootNode.addChildNode(targetNode!)
-        }
-        
-        if(lineNode != nil){
-            sceneView.scene.rootNode.addChildNode(lineNode!)
-        }
+        targetNode?.isHidden = false
+        lineNode?.isHidden = false
         
         takingPicture = false
         
@@ -173,11 +169,13 @@ import ARKit
     private var sceneView = ARSCNView()
     private var coachingView : ARCoachingOverlayView = ARCoachingOverlayView()
     private var lastScaled = TimeInterval(0)
+    private var vibrated = false
     private var takingPicture = false
     private var scaleTimeout = 0.2
     // colors good enough for white surfaces
     private let nodeColor : UIColor = UIColor(red: 255/255.0, green: 153/255.0, blue: 0, alpha: 1)
     private let nodeColorErr : UIColor = UIColor(red: 240/255.0, green: 0, blue: 0, alpha: 1)
+    private let nodeColorClose : UIColor = UIColor(red: 0, green: 153/255.0, blue: 51/255.0, alpha: 1)
     private let textColor : UIColor = UIColor(red: 255/255.0, green: 153/255.0, blue: 0, alpha: 1)
     private let fontSize : CGFloat = 16
     
@@ -270,6 +268,7 @@ import ARKit
             arStatus = "off"
             measuringStatus = "off"
             lastScaled = TimeInterval(0)
+            vibrated = false
             
             // Add coaching view
             coachingView.delegate = self
@@ -389,13 +388,13 @@ import ARKit
             
             let mStatus : String
             
-            let (err, currentPosition, result) = self.doRayTestOnExistingPlanes()
+            let (err, currentPosition, result, closeNode) = self.doRayTestOnExistingPlanes()
             
             
             if let position = currentPosition {
             
                 // node color if there was an acceptable error
-                let color = err != nil ? self.nodeColorErr : self.nodeColor
+                let color = err != nil ? self.nodeColorErr : (closeNode ? self.nodeColorClose : self.nodeColor)
                 
                 // if we have 1 node already, draw line
                 // also consider if we have errors
@@ -442,6 +441,15 @@ import ARKit
                 // throttle rotation changes to avoid odd effects
                 if (time - self.lastScaled > self.scaleTimeout){
                     self.targetNode?.setScaleAndAnchor(sceneView: self.sceneView, hitResult: result!, animation: self.scaleTimeout)
+                    
+                    if closeNode && !self.vibrated {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        self.vibrated = true
+                    }
+                    else if(!closeNode){
+                        self.vibrated = false
+                    }
+                    
                     self.lastScaled = time
                 }
                 
@@ -486,10 +494,10 @@ import ARKit
     }
     
     
-    private func doRayTestOnExistingPlanes() -> (String?, SCNVector3?, ARRaycastResult?) {
+    private func doRayTestOnExistingPlanes() -> (String?, SCNVector3?, ARRaycastResult?, Bool) {
         
         if(!arReady){
-            return ("Not Ready", nil, nil)
+            return ("Not Ready", nil, nil, false)
         }
         
         let location = self.sceneView.center
@@ -498,7 +506,7 @@ import ARKit
             
             // this should never happen
             measurementLabel.text = "Detection failed."
-            return ("Detection failed", nil, nil)
+            return ("Detection failed", nil, nil, false)
         }
         
         var hitTest = sceneView.session.raycast(query)
@@ -511,7 +519,7 @@ import ARKit
                 
                 // this should never happen
                 measurementLabel.text = "Detection failed."
-                return ("Detection failed", nil, nil)
+                return ("Detection failed", nil, nil, false)
             }
             
             hitTest = sceneView.session.raycast(queryInfinite)
@@ -523,7 +531,7 @@ import ARKit
         
         guard let cameraTransform = sceneView.session.currentFrame?.camera.transform else {
             measurementLabel.text = "Camera position is unknown."
-            return ("Camera position unknown", nil, nil)
+            return ("Camera position unknown", nil, nil, false)
         }
         let cameraPos = SCNVector3.positionFrom(matrix: cameraTransform)
         
@@ -556,7 +564,7 @@ import ARKit
         // Assigns the most accurate result to a constant if it is non-nil
         guard let result = _result else {
             measurementLabel.text = "Please check your lightning and make sure you are not too far from the surface."
-            return ("Detection failed", nil, nil)
+            return ("Detection failed", nil, nil, false)
         }
         
         
@@ -568,18 +576,34 @@ import ARKit
         if(distance < self.minDistanceCamera){
             measurementLabel.text = "Make sure you are not too close to the surface, or improve lightning conditions."
             
-            return ("Detection failed: too close to the surface", nil, nil)
+            return ("Detection failed: too close to the surface", nil, nil, false)
         }
         
         if(distance > self.maxDistanceCamera){
             measurementLabel.text = "Make sure you are not too far from the surface, or improve lightning conditions."
             
-            return ("Detection failed: too far from the surface", hitPos, result)
+            return ("Detection failed: too far from the surface", hitPos, result, false)
         }
         
         measurementLabel.text = ""
         
-        return (nil, hitPos, result)
+        let closeNode = findNearSphere(hitPos)
+        
+        return (nil, closeNode?.position ?? hitPos, result, closeNode != nil)
+    }
+    
+    // given a hit result, searches measurements
+    // to find a close match
+    func findNearSphere(_ to : SCNVector3) -> SphereNode? {
+        for m in measurements {
+            if m.node1.position.distance(to: to) < intersectDistance {
+                return m.node1
+            }
+            if m.node2.position.distance(to: to) < intersectDistance {
+                return m.node2
+            }
+        }
+        return nil
     }
 }
 
@@ -667,14 +691,17 @@ class SphereNode: SCNNode {
         let material = SCNMaterial()
         material.diffuse.contents = nodeColor
         material.lightingModel = .constant
+        material.readsFromDepthBuffer = false
+        material.writesToDepthBuffer = false
         
         // Creates an SCNSphere with a radius
-        let sphere = SCNSphere(radius: 0.01)
+        let sphere = SCNSphere(radius: 0.008)
         sphere.firstMaterial = material
         
         // Positions the node based on the passed in position
         self.geometry = sphere
         self.position = position
+        self.renderingOrder = 0
     }
     
     required init?(coder aDecoder: NSCoder) {
@@ -701,20 +728,26 @@ class TargetNode: SCNNode {
         donutNode.name = "donut"
         self.addChildNode(donutNode)
         
+        
         // Add sphere
         let sphereMaterial = SCNMaterial()
         sphereMaterial.diffuse.contents = nodeColor
         sphereMaterial.lightingModel = .constant
         
-        let sphere = SCNSphere(radius: 0.008)
+        sphereMaterial.readsFromDepthBuffer = false
+        sphereMaterial.writesToDepthBuffer = false
+        
+        let sphere = SCNSphere(radius: 0.009) // slightly bigger
         sphere.firstMaterial = sphereMaterial
         
         let sphereNode = SCNNode(geometry: sphere)
         sphereNode.name = "sphere"
+        sphereNode.renderingOrder = 15
         self.addChildNode(sphereNode)
         
         // Positions the node based on the passed in position
         self.position = position
+        self.renderingOrder = 15
     }
     
     // update the node position so we don't need to re-create it every time

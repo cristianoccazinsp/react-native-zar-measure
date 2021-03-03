@@ -44,6 +44,12 @@ type ZarMeasureViewProps = {
    */
   maxDistanceCamera: number,
 
+  /** Distance between nodes to use for node intersection
+   *
+   * default: 0.05
+   */
+  intersectDistance: number,
+
   /**
    * Callback fired when authorization has changed
    *
@@ -92,6 +98,7 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     units: 'm',
     minDistanceCamera: 0.05,
     maxDistanceCamera: 5,
+    intersectDistance: 0.05,
     onCameraStatusChange: dummy,
     onARStatusChange: dummy,
     onMeasuringStatusChange: dummy,
