@@ -15,7 +15,7 @@ class ZarMeasureViewManager: RCTViewManager {
     
     @objc
     override func constantsToExport() -> [AnyHashable : Any]! {
-        if #available(iOS 11.3, *) {
+        if #available(iOS 13, *) {
             _supportsAR = ARConfiguration.isSupported
         } else {
             _supportsAR = false
@@ -40,7 +40,7 @@ class ZarMeasureViewManager: RCTViewManager {
     }
     
     override func view() -> UIView! {
-        if #available(iOS 11.3, *) {
+        if #available(iOS 13, *) {
             return ZarMeasureView()
         } else {
             return nil;
@@ -50,7 +50,7 @@ class ZarMeasureViewManager: RCTViewManager {
     @objc
     func clear(_ node:NSNumber, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
-        if #available(iOS 11.3, *) {
+        if #available(iOS 13, *) {
             DispatchQueue.main.async { [weak self] in
                 
                 guard let view = self?.bridge.uiManager.view(forReactTag: node) as? ZarMeasureView else {
@@ -70,7 +70,7 @@ class ZarMeasureViewManager: RCTViewManager {
     @objc
     func addPoint(_ node:NSNumber, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
-        if #available(iOS 11.3, *) {
+        if #available(iOS 13, *) {
             DispatchQueue.main.async { [weak self] in
                 
                 guard let view = self?.bridge.uiManager.view(forReactTag: node) as? ZarMeasureView else {
@@ -97,7 +97,7 @@ class ZarMeasureViewManager: RCTViewManager {
     @objc
     func takePicture(_ node:NSNumber, imagePath path: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
-        if #available(iOS 11.3, *) {
+        if #available(iOS 13, *) {
             DispatchQueue.main.async { [weak self] in
                 
                 guard let view = self?.bridge.uiManager.view(forReactTag: node) as? ZarMeasureView else {

@@ -62,7 +62,11 @@ type ZarMeasureViewProps = {
   /**
    * Fired with AR tracking satus updates
    *
-   * status: off | no_anchors | not_available | excessive_motion | insufficient_features | initializing | ready
+   * status: off | loading | ready
+   *
+   * off: undefined, not used
+   * loading: AR is working on setting the inital world, and help messages are being shown
+   * ready: AR is ready to measure
   */
   onARStatusChange(evt: {status: string}):void,
 

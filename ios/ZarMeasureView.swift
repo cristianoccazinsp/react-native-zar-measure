@@ -4,8 +4,8 @@ import SceneKit
 import ARKit
 
 
-@available(iOS 11.3, *)
-@objc public class ZarMeasureView: UIView, ARSCNViewDelegate, UIGestureRecognizerDelegate, ARSessionDelegate {
+@available(iOS 13, *)
+@objc public class ZarMeasureView: UIView, ARSCNViewDelegate, UIGestureRecognizerDelegate, ARSessionDelegate, ARCoachingOverlayViewDelegate {
     
 
     // MARK: Public properties
@@ -134,6 +134,7 @@ import ARKit
 
     // MARK: Private properties
     private var sceneView = ARSCNView()
+    private var coachingView : ARCoachingOverlayView? = nil
     private var spheres: [SCNNode] = []
     private var measurementLabel = UILabel()
     
@@ -189,6 +190,9 @@ import ARKit
         if(newSuperview == nil){
             
             // remove gesture handlers, delegates, and stop session
+            coachingView?.removeFromSuperview()
+            coachingView = nil
+            
             sceneView.gestureRecognizers?.removeAll()
             sceneView.delegate = nil
             sceneView.session.delegate = nil
@@ -214,6 +218,7 @@ import ARKit
                 // Fallback on earlier versions
             }
             
+            
             //sceneView.preferredFramesPerSecond = 30
             sceneView.automaticallyUpdatesLighting = true
             //sceneView.debugOptions = [.showFeaturePoints]
@@ -228,6 +233,21 @@ import ARKit
             arReady = false
             arStatus = "off"
             measuringStatus = "off"
+            
+            // Add coaching view
+            let _coachingView = ARCoachingOverlayView()
+            _coachingView.autoresizingMask = [
+              .flexibleWidth, .flexibleHeight
+            ]
+            _coachingView.goal = .anyPlane
+            _coachingView.session = sceneView.session
+            _coachingView.delegate = self
+            _coachingView.activatesAutomatically = true
+            coachingView = _coachingView
+            
+            addSubview(_coachingView)
+            
+            // start session
             sceneView.session.run(configuration)
             
         }
@@ -249,6 +269,27 @@ import ARKit
     }
     
     
+    // MARK: Coaching delegates
+    
+    public func coachingOverlayViewWillActivate(_ coachingOverlayView: ARCoachingOverlayView) {
+        let status = "loading"
+        arReady = false
+        if(status != arStatus){
+            arStatus = status
+            onARStatusChange?(["status": status])
+        }
+    }
+    
+    public func coachingOverlayViewDidDeactivate(_ coachingOverlayView: ARCoachingOverlayView){
+        let status = "ready"
+        arReady = true
+        if(status != arStatus){
+            arStatus = status
+            onARStatusChange?(["status": status])
+        }
+    }
+    
+    
     // MARK: Session handling ARSessionDelegate
     
     public func session(_ session: ARSession, didFailWithError error: Error) {
@@ -258,20 +299,23 @@ import ARKit
         self.onMountError?(["message": error.localizedDescription])
     }
     
-    public func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
-        guard let frame = session.currentFrame else { return }
-        updateSessionInfoLabel(for: frame, trackingState: frame.camera.trackingState)
-    }
-
-    public func session(_ session: ARSession, didRemove anchors: [ARAnchor]) {
-        guard let frame = session.currentFrame else { return }
-        updateSessionInfoLabel(for: frame, trackingState: frame.camera.trackingState)
-    }
-
-    public func session(_ session: ARSession, cameraDidChangeTrackingState camera: ARCamera) {
-        updateSessionInfoLabel(for: session.currentFrame!, trackingState: camera.trackingState)
-    }
+//    public func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
+//        guard let frame = session.currentFrame else { return }
+//        updateSessionInfoLabel(for: frame, trackingState: frame.camera.trackingState)
+//    }
+//
+//    public func session(_ session: ARSession, didRemove anchors: [ARAnchor]) {
+//        guard let frame = session.currentFrame else { return }
+//        updateSessionInfoLabel(for: frame, trackingState: frame.camera.trackingState)
+//    }
+//
+//    public func session(_ session: ARSession, cameraDidChangeTrackingState camera: ARCamera) {
+//        updateSessionInfoLabel(for: session.currentFrame!, trackingState: camera.trackingState)
+//    }
     
+    public func sessionShouldAttemptRelocalization(_ session: ARSession) -> Bool {
+        return false
+    }
     
     // renderer callback method
     public func renderer(_ renderer: SCNSceneRenderer, updateAtTime time: TimeInterval) {
@@ -460,66 +504,66 @@ import ARKit
     }
     
     
-    private func updateSessionInfoLabel(for frame: ARFrame, trackingState: ARCamera.TrackingState) {
-        // Update the UI to provide feedback on the state of the AR experience.
-        let message: String
-        let status: String
-
-        switch trackingState {
-            case .normal where frame.anchors.isEmpty:
-                // No planes detected; provide instructions for this app's AR interactions.
-                message = "To begin, move the device around the area to improve subsequent measurement accuracy."
-                status = "no_anchors"
-                arReady = false
-                
-            case .notAvailable:
-                message = "Tracking unavailable."
-                status = "not_available"
-                arReady = false
-                
-            case .limited(.excessiveMotion):
-                message = "Move the device more slowly."
-                status = "excessive_motion"
-                arReady = false
-                
-            case .limited(.insufficientFeatures):
-                message = "Point the device at a visible surface, or improve lightning conditions."
-                status = "insufficient_features"
-                arReady = false
-                
-            case .limited(.initializing):
-                message = "To begin, move the device around the area to improve subsequent measurement accuracy."
-                status = "initializing"
-                arReady = false
-                
-            case .limited(.relocalizing):
-                message = "To begin, move the device around the area to improve subsequent measurement accuracy."
-                status = "initializing"
-                arReady = false
-                
-            default:
-                // No feedback needed when tracking is normal and planes are visible.
-                
-                // if ready not set yet, clear messages
-                if(!arReady){
-                    message = ""
-                    arReady = true
-                }
-                
-                // otherwise, leave message as is
-                else{
-                    message = measurementLabel.text ?? ""
-                }
-                status = "ready"
-        }
-
-        measurementLabel.text = message
-        
-        if(status != arStatus){
-            arStatus = status
-            onARStatusChange?(["status": status])
-        }
-    }
+//    private func updateSessionInfoLabel(for frame: ARFrame, trackingState: ARCamera.TrackingState) {
+//        // Update the UI to provide feedback on the state of the AR experience.
+//        let message: String
+//        let status: String
+//
+//        switch trackingState {
+//            case .normal where frame.anchors.isEmpty:
+//                // No planes detected; provide instructions for this app's AR interactions.
+//                message = "To begin, move the device around the area to improve subsequent measurement accuracy."
+//                status = "no_anchors"
+//                arReady = false
+//
+//            case .notAvailable:
+//                message = "Tracking unavailable."
+//                status = "not_available"
+//                arReady = false
+//
+//            case .limited(.excessiveMotion):
+//                message = "Move the device more slowly."
+//                status = "excessive_motion"
+//                arReady = false
+//
+//            case .limited(.insufficientFeatures):
+//                message = "Point the device at a visible surface, or improve lightning conditions."
+//                status = "insufficient_features"
+//                arReady = false
+//
+//            case .limited(.initializing):
+//                message = "To begin, move the device around the area to improve subsequent measurement accuracy."
+//                status = "initializing"
+//                arReady = false
+//
+//            case .limited(.relocalizing):
+//                message = "To begin, move the device around the area to improve subsequent measurement accuracy."
+//                status = "initializing"
+//                arReady = false
+//
+//            default:
+//                // No feedback needed when tracking is normal and planes are visible.
+//
+//                // if ready not set yet, clear messages
+//                if(!arReady){
+//                    message = ""
+//                    arReady = true
+//                }
+//
+//                // otherwise, leave message as is
+//                else{
+//                    message = measurementLabel.text ?? ""
+//                }
+//                status = "ready"
+//        }
+//
+//        measurementLabel.text = message
+//
+//        if(status != arStatus){
+//            arStatus = status
+//            onARStatusChange?(["status": status])
+//        }
+//    }
 }
 
 
@@ -606,7 +650,7 @@ class SphereNode: SCNNode {
 }
 
 
-@available(iOS 11.3, *)
+@available(iOS 13, *)
 class TargetNode: SCNNode {
         
     init(at position: SCNVector3, color nodeColor: UIColor) {
@@ -702,7 +746,7 @@ class TargetNode: SCNNode {
 }
 
 
-@available(iOS 11.3, *)
+@available(iOS 13, *)
 class TextNode: SCNNode {
     
     private let extrusionDepth: CGFloat = 0.1
