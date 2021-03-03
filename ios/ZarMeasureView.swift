@@ -12,7 +12,6 @@ import ARKit
     @objc public var units: String = "m"
     @objc public var minDistanceCamera: CGFloat = 0.05
     @objc public var maxDistanceCamera: CGFloat = 5
-    @objc public var useFeatureDetection: Bool = true
     @objc public var onARStatusChange: RCTDirectEventBlock? = nil
     @objc public var onMeasuringStatusChange: RCTDirectEventBlock? = nil
     @objc public var onMountError: RCTDirectEventBlock? = nil
@@ -50,7 +49,7 @@ import ARKit
             return("Cleared", nil, nil)
         }
         
-        let (er, currentPosition, result) = self.doHitTestOnExistingPlanes(self.sceneView.center)
+        let (er, currentPosition, result) = self.doRayTestOnExistingPlanes()
             
         if(currentPosition == nil || result == nil){
             return (er, nil, nil)
@@ -58,6 +57,10 @@ import ARKit
         else{
             // Makes a new sphere with the created method
             let sphere = SphereNode(at: currentPosition!, color: self.nodeColor)
+            
+            guard let cameraDistance = result?.distanceFromCamera(self.sceneView) else {
+                return("Camera not available", nil, nil)
+            }
             
             // Checks if there is at least one sphere in the array
             if let last = spheres.last {
@@ -89,7 +92,7 @@ import ARKit
                 
                 self.sceneView.scene.rootNode.addChildNode(textNode)
                 
-                return (nil, distance, result!.distance)
+                return (nil, distance, cameraDistance)
 
             // If there are no spheres...
             } else {
@@ -97,7 +100,7 @@ import ARKit
                 spheres.append(sphere)
                 self.sceneView.scene.rootNode.addChildNode(sphere)
                 
-                return (nil, nil, result!.distance)
+                return (nil, nil, cameraDistance)
             }
         }
     }
@@ -134,7 +137,9 @@ import ARKit
 
     // MARK: Private properties
     private var sceneView = ARSCNView()
-    private var coachingView : ARCoachingOverlayView? = nil
+    private var coachingView : ARCoachingOverlayView = ARCoachingOverlayView()
+    private var lastScaled = TimeInterval(0)
+    private var scaleTimeout = 0.2
     private var spheres: [SCNNode] = []
     private var measurementLabel = UILabel()
     
@@ -190,9 +195,8 @@ import ARKit
         if(newSuperview == nil){
             
             // remove gesture handlers, delegates, and stop session
-            coachingView?.removeFromSuperview()
-            coachingView = nil
             
+            coachingView.delegate = nil
             sceneView.gestureRecognizers?.removeAll()
             sceneView.delegate = nil
             sceneView.session.delegate = nil
@@ -219,7 +223,7 @@ import ARKit
             }
             
             
-            //sceneView.preferredFramesPerSecond = 30
+            sceneView.preferredFramesPerSecond = 30
             sceneView.automaticallyUpdatesLighting = true
             //sceneView.debugOptions = [.showFeaturePoints]
             sceneView.showsStatistics = false
@@ -233,19 +237,10 @@ import ARKit
             arReady = false
             arStatus = "off"
             measuringStatus = "off"
+            lastScaled = TimeInterval(0)
             
             // Add coaching view
-            let _coachingView = ARCoachingOverlayView()
-            _coachingView.autoresizingMask = [
-              .flexibleWidth, .flexibleHeight
-            ]
-            _coachingView.goal = .anyPlane
-            _coachingView.session = sceneView.session
-            _coachingView.delegate = self
-            _coachingView.activatesAutomatically = true
-            coachingView = _coachingView
-            
-            addSubview(_coachingView)
+            coachingView.delegate = self
             
             // start session
             sceneView.session.run(configuration)
@@ -257,6 +252,16 @@ import ARKit
         
         // add our main scene view
         addSubview(sceneView)
+        
+        // coaching view
+        coachingView.autoresizingMask = [
+          .flexibleWidth, .flexibleHeight
+        ]
+        coachingView.goal = .anyPlane
+        coachingView.session = sceneView.session
+        coachingView.delegate = self
+        coachingView.activatesAutomatically = true
+        addSubview(coachingView)
         
         // Add our main text indixcator
         measurementLabel.backgroundColor = UIColor(white: 1, alpha: 0.0)
@@ -274,6 +279,8 @@ import ARKit
     public func coachingOverlayViewWillActivate(_ coachingOverlayView: ARCoachingOverlayView) {
         let status = "loading"
         arReady = false
+        measurementLabel.text = ""
+        
         if(status != arStatus){
             arStatus = status
             onARStatusChange?(["status": status])
@@ -283,6 +290,8 @@ import ARKit
     public func coachingOverlayViewDidDeactivate(_ coachingOverlayView: ARCoachingOverlayView){
         let status = "ready"
         arReady = true
+        measurementLabel.text = ""
+        
         if(status != arStatus){
             arStatus = status
             onARStatusChange?(["status": status])
@@ -349,7 +358,7 @@ import ARKit
             
             let mStatus : String
             
-            let (err, currentPosition, result) = self.doHitTestOnExistingPlanes(self.sceneView.center)
+            let (err, currentPosition, result) = self.doRayTestOnExistingPlanes()
             
             
             if let position = currentPosition {
@@ -399,7 +408,11 @@ import ARKit
                     }
                 }
                 
-                self.targetNode?.setScaleAndAnchor(sceneView: self.sceneView, hitResult: result!)
+                // throttle rotation changes to avoid odd effects
+                if (time - self.lastScaled > self.scaleTimeout){
+                    self.targetNode?.setScaleAndAnchor(sceneView: self.sceneView, hitResult: result!, animation: self.scaleTimeout)
+                    self.lastScaled = time
+                }
                 
                 mStatus = err == nil ? "ready" : "error"
             }
@@ -442,37 +455,71 @@ import ARKit
     }
     
     
-    // Returns (error, point, hitTestResult)
-    // if there was an error, error will be a non nil string
-    // and the rest nil. Otherwise, a vector and hit result are returned
-    // if point is not nil, hitResult is guaranteed to be not nil
-    private func doHitTestOnExistingPlanes(_ location: CGPoint) -> (String?, SCNVector3?, ARHitTestResult?) {
+    private func doRayTestOnExistingPlanes() -> (String?, SCNVector3?, ARRaycastResult?) {
         
         if(!arReady){
             return ("Not Ready", nil, nil)
         }
         
-        // Search with various options
-        // using features increases speed but decreases accuracy
-        let hitTest = sceneView.hitTest(location, types: self.useFeatureDetection ? [.existingPlaneUsingGeometry, .existingPlaneUsingExtent, .estimatedVerticalPlane, .estimatedHorizontalPlane, .featurePoint] : [.existingPlaneUsingGeometry, .existingPlaneUsingExtent, .estimatedVerticalPlane, .estimatedHorizontalPlane])
+        let location = self.sceneView.center
+       
+        guard let query = sceneView.raycastQuery(from: location, allowing: .estimatedPlane, alignment: .any) else{
+            
+            // this should never happen
+            measurementLabel.text = "Detection failed."
+            return ("Detection failed", nil, nil)
+        }
         
-        let _result : ARHitTestResult?
+        var hitTest = sceneView.session.raycast(query)
         
-        
+        // if hit test count is 0, try with an infinite plane
+        // this matches more the native app, and prevents us from getting lots of error messages
+        if hitTest.count == 0 {
+            
+            guard let queryInfinite = sceneView.raycastQuery(from: location, allowing: .existingPlaneInfinite, alignment: .any) else{
+                
+                // this should never happen
+                measurementLabel.text = "Detection failed."
+                return ("Detection failed", nil, nil)
+            }
+            
+            hitTest = sceneView.session.raycast(queryInfinite)
+        }
+                
         // Try to get the most accurate results first.
         // That is, the result has an anchor, and is further than our min distance
-        if let firstAnchor = hitTest.first(where: {($0.anchor as? ARPlaneAnchor) != nil && $0.distance >= self.minDistanceCamera}) {
-            _result = firstAnchor
+        var _result : ARRaycastResult? = nil
+        
+        guard let cameraTransform = sceneView.session.currentFrame?.camera.transform else {
+            measurementLabel.text = "Camera position is unknown."
+            return ("Camera position unknown", nil, nil)
         }
-        else{
-            // else, fallback to filter the first one further away
-            if let firstMatch = hitTest.first(where: {$0.distance >= self.minDistanceCamera}) {
-                _result = firstMatch
+        let cameraPos = SCNVector3.positionFrom(matrix: cameraTransform)
+        
+        
+        // first, try to get anchors that meet our min distance requirement
+        for r in hitTest {
+            if (r.anchor as? ARPlaneAnchor) != nil {
+                if r.distanceFromCamera(cameraPos) >= minDistanceCamera{
+                    _result = r
+                    break
+                }
             }
-            else{
-                // lastly, just use the first result
-                _result = hitTest.first
+        }
+        
+        // result still not found, try again
+        if _result == nil {
+            for r in hitTest {
+                if r.distanceFromCamera(cameraPos) >= minDistanceCamera{
+                    _result = r
+                    break
+                }
             }
+        }
+        
+        // nothing, use first
+        if _result == nil {
+            _result = hitTest.first
         }
         
         // Assigns the most accurate result to a constant if it is non-nil
@@ -485,14 +532,15 @@ import ARKit
         // for distance errors, still return hit point for max error
         // so we allow rendering anyways
         let hitPos = SCNVector3.positionFrom(matrix: result.worldTransform)
+        let distance = cameraPos.distance(to: hitPos)
         
-        if(result.distance < self.minDistanceCamera){
+        if(distance < self.minDistanceCamera){
             measurementLabel.text = "Make sure you are not too close to the surface, or improve lightning conditions."
             
             return ("Detection failed: too close to the surface", nil, nil)
         }
         
-        if(result.distance > self.maxDistanceCamera){
+        if(distance > self.maxDistanceCamera){
             measurementLabel.text = "Make sure you are not too far from the surface, or improve lightning conditions."
             
             return ("Detection failed: too far from the surface", hitPos, result)
@@ -502,68 +550,6 @@ import ARKit
         
         return (nil, hitPos, result)
     }
-    
-    
-//    private func updateSessionInfoLabel(for frame: ARFrame, trackingState: ARCamera.TrackingState) {
-//        // Update the UI to provide feedback on the state of the AR experience.
-//        let message: String
-//        let status: String
-//
-//        switch trackingState {
-//            case .normal where frame.anchors.isEmpty:
-//                // No planes detected; provide instructions for this app's AR interactions.
-//                message = "To begin, move the device around the area to improve subsequent measurement accuracy."
-//                status = "no_anchors"
-//                arReady = false
-//
-//            case .notAvailable:
-//                message = "Tracking unavailable."
-//                status = "not_available"
-//                arReady = false
-//
-//            case .limited(.excessiveMotion):
-//                message = "Move the device more slowly."
-//                status = "excessive_motion"
-//                arReady = false
-//
-//            case .limited(.insufficientFeatures):
-//                message = "Point the device at a visible surface, or improve lightning conditions."
-//                status = "insufficient_features"
-//                arReady = false
-//
-//            case .limited(.initializing):
-//                message = "To begin, move the device around the area to improve subsequent measurement accuracy."
-//                status = "initializing"
-//                arReady = false
-//
-//            case .limited(.relocalizing):
-//                message = "To begin, move the device around the area to improve subsequent measurement accuracy."
-//                status = "initializing"
-//                arReady = false
-//
-//            default:
-//                // No feedback needed when tracking is normal and planes are visible.
-//
-//                // if ready not set yet, clear messages
-//                if(!arReady){
-//                    message = ""
-//                    arReady = true
-//                }
-//
-//                // otherwise, leave message as is
-//                else{
-//                    message = measurementLabel.text ?? ""
-//                }
-//                status = "ready"
-//        }
-//
-//        measurementLabel.text = message
-//
-//        if(status != arStatus){
-//            arStatus = status
-//            onARStatusChange?(["status": status])
-//        }
-//    }
 }
 
 
@@ -586,6 +572,22 @@ extension SCNVector3 {
     static func positionFrom(matrix: matrix_float4x4) -> SCNVector3 {
         let column = matrix.columns.3
         return SCNVector3(column.x, column.y, column.z)
+    }
+}
+
+@available(iOS 13.0, *)
+extension ARRaycastResult {
+    func distanceFromCamera(_ from: ARSCNView) -> CGFloat? {
+        
+        guard let cameraTransform = from.session.currentFrame?.camera.transform else {
+            return nil
+        }
+        
+        return SCNVector3.positionFrom(matrix: cameraTransform).distance(to: SCNVector3.positionFrom(matrix: worldTransform))
+    }
+    
+    func distanceFromCamera(_ from : SCNVector3) -> CGFloat {
+        return from.distance(to: SCNVector3.positionFrom(matrix: worldTransform))
     }
 }
 
@@ -673,7 +675,7 @@ class TargetNode: SCNNode {
         sphereMaterial.diffuse.contents = nodeColor
         sphereMaterial.lightingModel = .constant
         
-        let sphere = SCNSphere(radius: 0.01)
+        let sphere = SCNSphere(radius: 0.008)
         sphere.firstMaterial = sphereMaterial
         
         let sphereNode = SCNNode(geometry: sphere)
@@ -696,7 +698,7 @@ class TargetNode: SCNNode {
         }
     }
     
-    func setScaleAndAnchor(sceneView view : ARSCNView, hitResult hit: ARHitTestResult){
+    func setScaleAndAnchor(sceneView view : ARSCNView, hitResult hit: ARRaycastResult, animation duration: Double){
 //        if let pov = view.pointOfView {
 //            let distance = pov.distance(to: self)
 //            let scale = Float((CGFloat(0.5) * distance))
@@ -705,38 +707,29 @@ class TargetNode: SCNNode {
         
         guard let donut = self.childNode(withName: "donut", recursively: false) else {return}
         
-        if let _anchor = hit.anchor as? ARPlaneAnchor {
-            guard let anchoredNode = view.node(for: _anchor) else { return }
+        DispatchQueue.main.async {
+            // Animate rotation update so it looks nicer
+            SCNTransaction.begin()
+            SCNTransaction.animationDuration = duration
             
-            // rotate our donut based on detected anchor
-            donut.eulerAngles.x = anchoredNode.eulerAngles.x
-            donut.eulerAngles.y = anchoredNode.eulerAngles.y
-            donut.eulerAngles.z = anchoredNode.eulerAngles.z
-            
-            
-        }
-        else{
-            
-            // no anchor, check result type
-            // if it is estimated vertical, rotate
-            if(hit.type == .estimatedVerticalPlane){
+            if let _anchor = hit.anchor as? ARPlaneAnchor {
+                guard let anchoredNode = view.node(for: _anchor) else { return }
                 
-                // set transform directly so we dont need to do math
-                // then restore values. This is needed since worldTransform doesnt provide eulerAngles
+                // rotate our donut based on detected anchor
+                donut.eulerAngles.x = anchoredNode.eulerAngles.x
+                donut.eulerAngles.y = anchoredNode.eulerAngles.y
+                donut.eulerAngles.z = anchoredNode.eulerAngles.z
+            }
+            else{
+                
                 let dummy = SCNNode()
                 dummy.transform = SCNMatrix4(hit.worldTransform)
-                donut.eulerAngles.x = .pi / 2
+                donut.eulerAngles.x = dummy.eulerAngles.x
                 donut.eulerAngles.y = dummy.eulerAngles.y
-                donut.eulerAngles.z = 0
+                donut.eulerAngles.z = dummy.eulerAngles.z
             }
             
-            // in any other case, assume horizontal
-            else{
-                donut.eulerAngles.x = 0
-                donut.eulerAngles.y = 0
-                donut.eulerAngles.z = 0
-            }
-
+            SCNTransaction.commit()
         }
     }
     
