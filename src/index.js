@@ -119,10 +119,23 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
   }
 
   /**
+   * Removes the last added measurement, if any, or removes the previously
+   * added partial node.
+   */
+  async removeLast(){
+    const handle = findNodeHandle(this._ref.current);
+    if(handle){
+      await ZarMeasureModule.removeLast(handle);
+    }
+  }
+
+  /**
    * Adds a new point in the currently detected node.
    * If it was the first point added, only returns camera distance,
    * otherwise, resolves with both distance and cameraDistance
    * Lastly, if there were 2 points already, it is the same as calling clear and error is "Cleared"
+   *
+   * setCurrent: while adding the point, also makes the new point the current point for a new measure
    *
    * Resolves {added: bool, error: str, distance: number, cameraDistance: number}
    * error will be a string if the add point operation failed.
@@ -130,10 +143,10 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    * distance: distance in meters (regarldess of unit)
    * cameraDistance: camera distance in meters
    */
-  async addPoint(){
+  async addPoint(setCurrent=false){
     const handle = findNodeHandle(this._ref.current);
     if(handle){
-      return await ZarMeasureModule.addPoint(handle);
+      return await ZarMeasureModule.addPoint(handle, setCurrent);
     }
     return {error: "View not available", added: false};
   }

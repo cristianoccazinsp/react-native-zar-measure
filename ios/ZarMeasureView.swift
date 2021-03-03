@@ -21,33 +21,46 @@ import ARKit
     
     // Removes all nodes and lines
     // Must be called on UI thread
-    func clear() -> Void
+    func clear()
     {
         // no need for locks since everything runs on the UI thread
-        spheres.removeAll()
+        measurements.removeAll()
         lineNode?.removeFromParentNode()
         targetNode?.removeFromParentNode()
-        textNode?.removeFromParentNode()
+        currentNode?.removeFromParentNode()
+     
         while let n = self.sceneView.scene.rootNode.childNodes.first { n.removeFromParentNode()
         }
+        
         lineNode = nil
         targetNode = nil
-        textNode = nil
+        currentNode = nil
         measurementLabel.text = ""
     }
     
+    // removes the last added measurement
+    func removeLast()
+    {
+        if let current = currentNode {
+            current.removeFromParentNode()
+            lineNode?.removeFromParentNode()
+            currentNode = nil
+            lineNode = nil
+        }
+        else if let last = measurements.last{
+            last.line.removeFromParentNode()
+            last.node1.removeFromParentNode()
+            last.node2.removeFromParentNode()
+            last.text.removeFromParentNode()
+            measurements.removeLast()
+        }
+    }
     
     // Adds a new point (or calculates distance if there was one already)
     // returns (err, distance, cameraDistance)
-    // if there are already 2 points, they all cleared and status is restarted
-    // Must be called on UI thread
-    func addPoint() -> (String?, CGFloat?, CGFloat?)
+    // if setCurrent is true, sets the newly added point as the current one
+    func addPoint(_ setCurrent : Bool) -> (String?, CGFloat?, CGFloat?)
     {
-        // if we already have 2 nodes, clear them
-        if(spheres.count > 1){
-            self.clear()
-            return("Cleared", nil, nil)
-        }
         
         let (er, currentPosition, result) = self.doRayTestOnExistingPlanes()
             
@@ -62,15 +75,13 @@ import ARKit
                 return("Camera not available", nil, nil)
             }
             
-            // Checks if there is at least one sphere in the array
-            if let last = spheres.last {
+            // If we have a current node
+            if let current = currentNode {
 
-                let distance = sphere.distance(to: last)
+                let distance = sphere.distance(to: current)
 
                 //self.showMeasure(distance)
                 measurementLabel.text = ""
-                
-                let measureLine = LineNode(from: last.position, to: sphere.position, lineColor: self.textColor)
 
                 // remove any previous target and lines, if any.
                 lineNode?.removeFromParentNode()
@@ -78,26 +89,33 @@ import ARKit
                 targetNode?.removeFromParentNode()
                 targetNode = nil
 
-                // Adds a second sphere to the array
-                spheres.append(sphere)
+                // Adds a new measurement and clear current node
+                let newLine = LineNode(from: current.position, to: sphere.position, lineColor: self.textColor)
+                let newText = TextNode(between: current.position, and: sphere.position, textLabel: self.getMeasureString(distance), textColor: self.nodeColor, sceneView: self.sceneView)
+               
+                let newMeasure = MeasurementGroup(current, sphere, newLine, newText)
+                measurements.append(newMeasure)
+                
+                // add all objects to the scene
                 self.sceneView.scene.rootNode.addChildNode(sphere)
+                self.sceneView.scene.rootNode.addChildNode(newLine)
+                self.sceneView.scene.rootNode.addChildNode(newText)
                 
-                // add line
-                lineNode = measureLine
-                self.sceneView.scene.rootNode.addChildNode(measureLine)
-                
-                // add text node last
-                let textNode = TextNode(between: last.position, and: sphere.position, textLabel: self.getMeasureString(distance), textColor: self.nodeColor, sceneView: self.sceneView)
-                self.textNode = textNode
-                
-                self.sceneView.scene.rootNode.addChildNode(textNode)
+                // clear current node to allow new measurement
+                if setCurrent{
+                    // clone it
+                    currentNode = SphereNode(at: sphere.position, color: self.nodeColor)
+                    self.sceneView.scene.rootNode.addChildNode(currentNode!)
+                }
+                else {
+                    currentNode = nil
+                }
                 
                 return (nil, distance, cameraDistance)
 
-            // If there are no spheres...
             } else {
-                // Add the sphere
-                spheres.append(sphere)
+                // Add the sphere as the current node
+                currentNode = sphere
                 self.sceneView.scene.rootNode.addChildNode(sphere)
                 
                 return (nil, nil, cameraDistance)
@@ -115,7 +133,23 @@ import ARKit
             completion("Not ready")
         }
         
+        takingPicture = true
+        // temporary remove target nodes from view
+        targetNode?.removeFromParentNode()
+        lineNode?.removeFromParentNode()
+        
         let image = sceneView.snapshot()
+        
+        // re add it back
+        if(targetNode != nil){
+            sceneView.scene.rootNode.addChildNode(targetNode!)
+        }
+        
+        if(lineNode != nil){
+            sceneView.scene.rootNode.addChildNode(lineNode!)
+        }
+        
+        takingPicture = false
         
         DispatchQueue.global(qos: .background).async {
             if let data = image.pngData() {
@@ -139,19 +173,21 @@ import ARKit
     private var sceneView = ARSCNView()
     private var coachingView : ARCoachingOverlayView = ARCoachingOverlayView()
     private var lastScaled = TimeInterval(0)
+    private var takingPicture = false
     private var scaleTimeout = 0.2
-    private var spheres: [SCNNode] = []
-    private var measurementLabel = UILabel()
-    
     // colors good enough for white surfaces
     private let nodeColor : UIColor = UIColor(red: 255/255.0, green: 153/255.0, blue: 0, alpha: 1)
     private let nodeColorErr : UIColor = UIColor(red: 240/255.0, green: 0, blue: 0, alpha: 1)
     private let textColor : UIColor = UIColor(red: 255/255.0, green: 153/255.0, blue: 0, alpha: 1)
     private let fontSize : CGFloat = 16
     
+    private var measurementLabel = UILabel() // general purpose message
+    
+    private var measurements: [MeasurementGroup] = []
+    private var currentNode : SphereNode? = nil // to start a measurement
     private var lineNode : LineNode? = nil
     private var targetNode: TargetNode? = nil
-    private var textNode : TextNode? = nil
+    
     private var arReady : Bool = false
     private var arStatus : String = "off"
     private var measuringStatus : String = "off"
@@ -170,10 +206,6 @@ import ARKit
     }
 
     deinit {
-//        sceneView.session.pause()
-//        arReady = false
-//        arStatus = "off"
-//        measuringStatus = "off"
     }
     
     public override func layoutSubviews() {
@@ -329,18 +361,17 @@ import ARKit
     // renderer callback method
     public func renderer(_ renderer: SCNSceneRenderer, updateAtTime time: TimeInterval) {
         
+        if(takingPicture){
+            return
+        }
+        
         DispatchQueue.main.async { [weak self] in
             
             guard let self = self else {return}
             
-            // update text node if it is rendered
-            if(self.textNode != nil){
-                self.textNode?.setScale(sceneView: self.sceneView)
-            }
-            
-            // if we have more than 2 nodes, no need to do anything else
-            if self.spheres.count > 1 {
-                return
+            // update text nodes from measurements
+            for t in self.measurements {
+                t.text.setScale(sceneView: self.sceneView)
             }
             
             // always remoe this since we re-create it every time
@@ -368,7 +399,7 @@ import ARKit
                 
                 // if we have 1 node already, draw line
                 // also consider if we have errors
-                if let start = self.spheres.first {
+                if let start = self.currentNode {
                     
                     // line node
                     self.lineNode = LineNode(from: start.position, to: position, lineColor: color)
@@ -813,5 +844,20 @@ class TextNode: SCNNode {
     required init?(coder aDecoder: NSCoder) {
         super.init(coder: aDecoder)
     }
+}
+
+
+@available(iOS 13, *)
+class MeasurementGroup {
+    public let node1 : SphereNode
+    public let node2 : SphereNode
+    public let line : LineNode
+    public let text : TextNode
     
+    init(_ node1:SphereNode, _ node2:SphereNode, _ line:LineNode, _ text:TextNode){
+        self.node1 = node1
+        self.node2 = node2
+        self.line = line
+        self.text = text
+    }
 }

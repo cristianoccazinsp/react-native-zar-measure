@@ -68,7 +68,27 @@ class ZarMeasureViewManager: RCTViewManager {
     }
     
     @objc
-    func addPoint(_ node:NSNumber, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    func removeLast(_ node:NSNumber, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    {
+        if #available(iOS 13, *) {
+            DispatchQueue.main.async { [weak self] in
+                
+                guard let view = self?.bridge.uiManager.view(forReactTag: node) as? ZarMeasureView else {
+                    resolve(nil)
+                    return;
+                }
+                
+                view.removeLast()
+                resolve(nil)
+            }
+        }
+        else{
+            resolve(nil)
+        }
+    }
+    
+    @objc
+    func addPoint(_ node:NSNumber, setCurrent current : Bool, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 13, *) {
             DispatchQueue.main.async { [weak self] in
@@ -78,7 +98,7 @@ class ZarMeasureViewManager: RCTViewManager {
                     return;
                 }
                 
-                let (err, distance, cameraDistance) = view.addPoint()
+                let (err, distance, cameraDistance) = view.addPoint(current)
                 
                 if(err == nil){
                     resolve(["added": true, "error": nil, "distance": distance,
