@@ -227,6 +227,7 @@ import ARKit
             // remove gesture handlers, delegates, and stop session
             
             coachingView.delegate = nil
+            coachingView.session = nil
             sceneView.gestureRecognizers?.removeAll()
             sceneView.delegate = nil
             sceneView.session.delegate = nil
@@ -272,9 +273,19 @@ import ARKit
             
             // Add coaching view
             coachingView.delegate = self
+            coachingView.session = sceneView.session
             
             // start session
             sceneView.session.run(configuration)
+            
+            // run this afterwards, for some reason the session takes time to start
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+                guard let self = self else {return}
+                
+                if self.sceneView.delegate != nil && !self.coachingView.isActive && !self.arReady {
+                    self.coachingView.setActive(true, animated: true)
+                }
+            }
             
         }
     }
@@ -289,8 +300,6 @@ import ARKit
           .flexibleWidth, .flexibleHeight
         ]
         coachingView.goal = .anyPlane
-        coachingView.session = sceneView.session
-        coachingView.delegate = self
         coachingView.activatesAutomatically = true
         addSubview(coachingView)
         
