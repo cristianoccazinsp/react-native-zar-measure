@@ -16,7 +16,7 @@ import ARKit
     @objc public var onARStatusChange: RCTDirectEventBlock? = nil
     @objc public var onMeasuringStatusChange: RCTDirectEventBlock? = nil
     @objc public var onMountError: RCTDirectEventBlock? = nil
-    
+    @objc public var onTextTap: RCTDirectEventBlock? = nil
     
     // MARK: Public methods
     
@@ -57,10 +57,32 @@ import ARKit
         }
     }
     
+    
+    func removeMeasurement(_ id : String) -> MeasurementLine?
+    {
+        guard let idx = measurements.firstIndex(where: {$0.id == id}) else { return nil}
+        
+        let node = measurements[idx]
+        measurements.remove(at: idx)
+        
+        node.line.removeFromParentNode()
+        node.node1.removeFromParentNode()
+        node.node2.removeFromParentNode()
+        node.text.removeFromParentNode()
+        
+        return node.toDict()
+    }
+    
+    func getMeasurements() -> [MeasurementLine]{
+        return measurements.enumerated().map { (index, element) in
+            return element.toDict()
+        }
+    }
+    
     // Adds a new point (or calculates distance if there was one already)
-    // returns (err, distance, cameraDistance)
+    // returns (err, measurement, cameraDistance)
     // if setCurrent is true, sets the newly added point as the current one
-    func addPoint(_ setCurrent : Bool) -> (String?, CGFloat?, CGFloat?)
+    func addPoint(_ setCurrent : Bool) -> (String?, MeasurementLine?, CGFloat?)
     {
         
         let (er, currentPosition, result, _) = self.doRayTestOnExistingPlanes()
@@ -99,7 +121,7 @@ import ARKit
                 let newLine = LineNode(from: current.position, to: sphere.position, lineColor: self.textColor)
                 newLine.setScale(sceneView: self.sceneView, in: newText)
                
-                let newMeasure = MeasurementGroup(current, sphere, newLine, newText)
+                let newMeasure = MeasurementGroup(getNextId(), current, sphere, newLine, newText, distance)
                 measurements.append(newMeasure)
                 
                 // add all objects to the scene
@@ -118,7 +140,7 @@ import ARKit
                     currentNode = nil
                 }
                 
-                return (nil, distance, cameraDistance)
+                return (nil, newMeasure.toDict(), cameraDistance)
 
             } else {
                 // Add the sphere as the current node
@@ -134,10 +156,10 @@ import ARKit
     // Calls completion handler with a string if there was an error
     // or nil otherwise.
     // Must be called on UI thread
-    func takePicture(_ path : String, completion: @escaping (String?) -> Void)
+    func takePicture(_ path : String, completion: @escaping (String?, [MeasurementLine2D]) -> Void)
     {
         if(!arReady){
-            completion("Not ready")
+            completion("Not ready", [])
         }
         
         takingPicture = true
@@ -146,6 +168,15 @@ import ARKit
         lineNode?.isHidden = true
         
         let image = sceneView.snapshot()
+        var points : [MeasurementLine2D] = []
+        var idx = 0
+        
+        for m in measurements {
+            if let d = m.toDict2D(sceneView){
+                points.append(d)
+            }
+            idx += 1
+        }
         
         // re add it back
         targetNode?.isHidden = false
@@ -159,14 +190,14 @@ import ARKit
                 
                 do{
                     try data.write(to: fileUrl)
-                    completion(nil)
+                    completion(nil, points)
                 }
                 catch let error  {
-                    completion("Failed to write image to path: " + error.localizedDescription)
+                    completion("Failed to write image to path: " + error.localizedDescription, [])
                 }
             }
             else{
-                completion("Failed to save image.")
+                completion("Failed to save image.", [])
             }
         }
     }
@@ -188,6 +219,7 @@ import ARKit
     
     private var measurementLabel = UILabel() // general purpose message
     
+    private var nodeId = 1
     private var measurements: [MeasurementGroup] = []
     private var currentNode : SphereNode? = nil // to start a measurement
     private var lineNode : LineNode? = nil
@@ -294,35 +326,13 @@ import ARKit
                 }
             }
             
+            // add tap gestures as well
+            let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
+            tapGestureRecognizer.cancelsTouchesInView = false
+            self.sceneView.addGestureRecognizer(tapGestureRecognizer)
         }
     }
 
-    private func commonInit() {
-        
-        // add our main scene view
-        addSubview(sceneView)
-        
-        // add our main root node
-        sceneView.scene.rootNode.addChildNode(rootNode)
-        
-        // coaching view
-        coachingView.autoresizingMask = [
-          .flexibleWidth, .flexibleHeight
-        ]
-        coachingView.goal = .anyPlane
-        coachingView.activatesAutomatically = true
-        addSubview(coachingView)
-        
-        // Add our main text indixcator
-        measurementLabel.backgroundColor = UIColor(white: 1, alpha: 0.0)
-        measurementLabel.text = ""
-        measurementLabel.textColor = self.textColor
-        measurementLabel.font = UIFont.systemFont(ofSize: fontSize, weight: UIFont.Weight.heavy)
-        measurementLabel.numberOfLines = 3
-        measurementLabel.textAlignment = .center
-        addSubview(measurementLabel)
-    }
-    
     
     // MARK: Coaching delegates
     
@@ -357,20 +367,6 @@ import ARKit
         measuringStatus = "off"
         self.onMountError?(["message": error.localizedDescription])
     }
-    
-//    public func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
-//        guard let frame = session.currentFrame else { return }
-//        updateSessionInfoLabel(for: frame, trackingState: frame.camera.trackingState)
-//    }
-//
-//    public func session(_ session: ARSession, didRemove anchors: [ARAnchor]) {
-//        guard let frame = session.currentFrame else { return }
-//        updateSessionInfoLabel(for: frame, trackingState: frame.camera.trackingState)
-//    }
-//
-//    public func session(_ session: ARSession, cameraDidChangeTrackingState camera: ARCamera) {
-//        updateSessionInfoLabel(for: session.currentFrame!, trackingState: camera.trackingState)
-//    }
     
     public func sessionShouldAttemptRelocalization(_ session: ARSession) -> Bool {
         return false
@@ -505,8 +501,79 @@ import ARKit
     }
     
     
+    // MARK gesture handling
+    
+    @objc func handleTap(sender:UITapGestureRecognizer) {
+        if !arReady {
+            return
+        }
+        
+        guard let sceneView = sender.view as? ARSCNView else {return}
+        let touchLocation = sender.location(in: sceneView)
+        let result = sceneView.hitTest(touchLocation, options: [SCNHitTestOption.searchMode: 1, SCNHitTestOption.rootNode: rootNode])
+        
+        // search all results to see if we have a text node
+        // in one of our measurements
+        for r in result {
+            
+            // we may get a hit on the plane node, or text node
+            let textNode: TextNode?
+            
+            if r.node.name == "textnode" {
+                textNode = r.node as? TextNode
+            }
+            else if r.node.parent?.name == "textnode"{
+                textNode = r.node.parent as? TextNode
+            }
+            else {
+                continue
+            }
+            
+            
+            if let _textNode = textNode {
+                if let measurement = measurements.first(where: {_textNode.id == $0.id}){
+                    self.onTextTap?(["measurement": measurement.toDict(), "location": ["x": touchLocation.x, "y": touchLocation.y]])
+                    
+                    return
+                }
+            }
+        }
+    }
+    
     
     // MARK: Private functions
+    
+    private func commonInit() {
+        
+        // add our main scene view
+        addSubview(sceneView)
+        
+        // add our main root node
+        sceneView.scene.rootNode.addChildNode(rootNode)
+        
+        // coaching view
+        coachingView.autoresizingMask = [
+          .flexibleWidth, .flexibleHeight
+        ]
+        coachingView.goal = .anyPlane
+        coachingView.activatesAutomatically = true
+        addSubview(coachingView)
+        
+        // Add our main text indixcator
+        measurementLabel.backgroundColor = UIColor(white: 1, alpha: 0.0)
+        measurementLabel.text = ""
+        measurementLabel.textColor = self.textColor
+        measurementLabel.font = UIFont.systemFont(ofSize: fontSize, weight: UIFont.Weight.heavy)
+        measurementLabel.numberOfLines = 3
+        measurementLabel.textAlignment = .center
+        addSubview(measurementLabel)
+    }
+    
+    private func getNextId() -> String {
+        let next = String(nodeId)
+        nodeId += 1
+        return next
+    }
     
     private func getMeasureString(_ value: CGFloat) -> String{
         var unitsStr = "m"
@@ -524,7 +591,6 @@ import ARKit
     private func showMeasure(_ value: CGFloat) {
         measurementLabel.text = getMeasureString(value)
     }
-    
     
     private func doRayTestOnExistingPlanes() -> (String?, SCNVector3?, ARRaycastResult?, Bool) {
         
@@ -878,6 +944,7 @@ class TargetNode: SCNNode {
 class TextNode: SCNNode {
     
     private let extrusionDepth: CGFloat = 0.1
+    public var id : String?
     
     init(between vectorA: SCNVector3, and vectorB: SCNVector3, textLabel label: String, textColor color: UIColor) {
         super.init()
@@ -931,7 +998,10 @@ class TextNode: SCNNode {
             CGFloat(min.z) - extrusionDepth
         )
         
+        planeNode.name = "textnode-plane"
+        
         self.addChildNode(planeNode)
+        self.name = "textnode"
     }
     
     func setScale(sceneView view : ARSCNView){
@@ -949,17 +1019,82 @@ class TextNode: SCNNode {
 }
 
 
+public typealias MeasurementLine = Dictionary<String, Any>
+public typealias MeasurementLine2D = Dictionary<String, Any>
+
 @available(iOS 13, *)
 class MeasurementGroup {
-    public let node1 : SphereNode
-    public let node2 : SphereNode
-    public let line : LineNode
-    public let text : TextNode
+    let id : String
+    let node1 : SphereNode
+    let node2 : SphereNode
+    let line : LineNode
+    let text : TextNode
+    let distance : Float
     
-    init(_ node1:SphereNode, _ node2:SphereNode, _ line:LineNode, _ text:TextNode){
+    init(_ id:String, _ node1:SphereNode, _ node2:SphereNode, _ line:LineNode, _ text:TextNode, _ distance:CGFloat){
+        self.id = id
         self.node1 = node1
         self.node2 = node2
         self.line = line
         self.text = text
+        self.distance = Float(distance)
+        self.text.id = id
+    }
+    
+    func toDict() -> MeasurementLine {
+        return [
+            "id": id,
+            "node1": [
+                "x": node1.worldPosition.x,
+                "y": node1.worldPosition.y,
+                "z": node1.worldPosition.z
+            ],
+            "node2": [
+                "x": node2.worldPosition.x,
+                "y": node2.worldPosition.y,
+                "z": node2.worldPosition.z
+            ],
+            "distance": self.distance
+        ]
+    }
+    
+    // same as to dict, but returns the 2D projections in the current image frame
+    func toDict2D(_ view:ARSCNView) -> MeasurementLine2D? {
+        
+        let size = view.bounds.size
+        let orientation = UIApplication.shared.statusBarOrientation
+        
+        if let camera =  view.session.currentFrame?.camera {
+            
+            let projected1 = camera.projectPoint(node1.simdWorldPosition, orientation: orientation, viewportSize: size)
+            let projected2 = camera.projectPoint(node2.simdWorldPosition, orientation: orientation, viewportSize: size)
+                
+            
+            var res : MeasurementLine2D = [
+                "id": id,
+                "distance": self.distance
+            ]
+            
+            if (projected1.x >= 0 && projected1.x <= size.width && projected1.y >= 0 && projected1.y <= size.height){
+                
+                res["node1"] = [
+                    "x": projected1.x,
+                    "y": projected1.y
+                ]
+            }
+            
+            if (projected2.x >= 0 && projected2.x <= size.width && projected2.y >= 0 && projected2.y <= size.height){
+                
+                res["node2"] = [
+                    "x": projected2.x,
+                    "y": projected2.y
+                ]
+            }
+            
+            return res
+        }
+        
+        return nil
+        
     }
 }

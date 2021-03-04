@@ -77,10 +77,26 @@ type ZarMeasureViewProps = {
   onMeasuringStatusChange(evt: {status: string}):void,
 
   /** Fired if there was a camera mount error */
-  onMountError(err: { message: string }): void
+  onMountError(err: { message: string }): void,
+
+  /**
+   * Called when a measurement label is tapped.
+   */
+  onTextTap(evt: {measurement: MeasurementLine, location: {x: number, y: number}}):void,
 }
 
+type MeasurementNode = {
+  x: number,
+  y: number,
+  z: number
+}
 
+type MeasurementLine = {
+  id: string,
+  node1: MeasurementNode,
+  node2: MeasurementNode,
+  distance: number // in meters
+}
 
 export const androidCameraPermissionOptions = {
   title: 'Permission to use camera',
@@ -102,7 +118,8 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     onCameraStatusChange: dummy,
     onARStatusChange: dummy,
     onMeasuringStatusChange: dummy,
-    onMountError: dummy
+    onMountError: dummy,
+    onTextTap: dummy
   }
 
   // ------ Consts ----------------
@@ -127,7 +144,7 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
 
   /**
    * Removes the last added measurement, if any, or removes the previously
-   * added partial node.
+   * added partial node (stops current measurement).
    */
   async removeLast(){
     const handle = findNodeHandle(this._ref.current);
@@ -136,21 +153,30 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     }
   }
 
+  /** Removes a measurmenet by index and returns its data or null if none
+   *
+   * Returns MeasurementLine or null if nothing was removed
+   */
+  async removeMeasurement(id) : MeasurementLine {
+    const handle = findNodeHandle(this._ref.current);
+    if(handle){
+      return await ZarMeasureModule.removeMeasurement(handle, id);
+    }
+  }
+
   /**
    * Adds a new point in the currently detected node.
    * If it was the first point added, only returns camera distance,
-   * otherwise, resolves with both distance and cameraDistance
+   * otherwise, resolves with both distance and measurement
    * Lastly, if there were 2 points already, it is the same as calling clear and error is "Cleared"
    *
    * setCurrent: while adding the point, also makes the new point the current point for a new measure
-   *
-   * Resolves {added: bool, error: str, distance: number, cameraDistance: number}
    * error will be a string if the add point operation failed.
    *
-   * distance: distance in meters (regarldess of unit)
+   * measurement.distance: distance in meters (regarldess of unit)
    * cameraDistance: camera distance in meters
    */
-  async addPoint(setCurrent=false){
+  async addPoint(setCurrent=false) : {added: boolean, error: string, measurement: MeasurementLine, cameraDistance: number} {
     const handle = findNodeHandle(this._ref.current);
     if(handle){
       return await ZarMeasureModule.addPoint(handle, setCurrent);
@@ -159,11 +185,24 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
   }
 
   /**
+   * Returns all existing measurements on screen
+   *
+   */
+  async getMeasurements() : [MeasurementLine] {
+    const handle = findNodeHandle(this._ref.current);
+    if(handle){
+      return await ZarMeasureModule.getMeasurements(handle);
+    }
+    return {error: "View not available", added: false};
+  }
+
+  /**
    * Takes a PNG picture of the current scene and saves it into the given path
    *
-   * Resolves ({error: str})
+   * where measurements are in the 2D coordinate of the image (0,0 is top left).
+   * Only those nodes which are in the picture are returned.
    */
-  async takePicture(path){
+  async takePicture(path) : {error: string, measurements: [MeasurementLine]} {
     const handle = findNodeHandle(this._ref.current);
     if(handle){
       return await ZarMeasureModule.takePicture(handle, path);
@@ -241,6 +280,10 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     this.props.onMountError(evt.nativeEvent);
   }
 
+  onTextTap = (evt) => {
+    this.props.onTextTap(evt.nativeEvent)
+  }
+
   render(){
     let {authChecked, authorized} = this.state;
 
@@ -256,6 +299,7 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
       onARStatusChange,
       onMeasuringStatusChange,
       onMountError,
+      onTextTap,
       ...props
     } = this.props;
 
@@ -266,6 +310,7 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
         onARStatusChange={this.onARStatusChange}
         onMeasuringStatusChange={this.onMeasuringStatusChange}
         onMountError={this.onMountError}
+        onTextTap={this.onTextTap}
       />
     )
   }

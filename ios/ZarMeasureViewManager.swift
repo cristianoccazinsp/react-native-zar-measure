@@ -88,6 +88,25 @@ class ZarMeasureViewManager: RCTViewManager {
     }
     
     @objc
+    func removeMeasurement(_ node:NSNumber, nodeId nid:String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    {
+        if #available(iOS 13, *) {
+            DispatchQueue.main.async { [weak self] in
+                
+                guard let view = self?.bridge.uiManager.view(forReactTag: node) as? ZarMeasureView else {
+                    resolve(nil)
+                    return;
+                }
+                
+                resolve(view.removeMeasurement(nid))
+            }
+        }
+        else{
+            resolve(nil)
+        }
+    }
+    
+    @objc
     func addPoint(_ node:NSNumber, setCurrent current : Bool, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 13, *) {
@@ -98,10 +117,10 @@ class ZarMeasureViewManager: RCTViewManager {
                     return;
                 }
                 
-                let (err, distance, cameraDistance) = view.addPoint(current)
+                let (err, measurement, cameraDistance) = view.addPoint(current)
                 
                 if(err == nil){
-                    resolve(["added": true, "error": nil, "distance": distance,
+                    resolve(["added": true, "error": nil, "measurement": measurement,
                              "cameraDistance": cameraDistance])
                 }
                 else{
@@ -115,6 +134,26 @@ class ZarMeasureViewManager: RCTViewManager {
     }
     
     @objc
+    func getMeasurements(_ node:NSNumber,resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    {
+        if #available(iOS 13, *) {
+            DispatchQueue.main.async { [weak self] in
+                
+                guard let view = self?.bridge.uiManager.view(forReactTag: node) as? ZarMeasureView else {
+                    resolve([])
+                    return;
+                }
+                
+                resolve(view.getMeasurements())
+            }
+        }
+        else{
+            resolve([])
+        }
+    }
+    
+    
+    @objc
     func takePicture(_ node:NSNumber, imagePath path: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 13, *) {
@@ -125,8 +164,15 @@ class ZarMeasureViewManager: RCTViewManager {
                     return;
                 }
                 
-                view.takePicture(path){ err in
-                    resolve(["error": err])
+                view.takePicture(path){ (err, measurements) in
+                    if(err == nil){
+                        resolve(["error": nil, "measurements": measurements])
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    }
+                    else{
+                        resolve(["error": err])
+                    }
+                    
                 }
             }
         }
