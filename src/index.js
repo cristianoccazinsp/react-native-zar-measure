@@ -151,6 +151,16 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
   }
 
   /**
+   * Clears the current measuring step, if any.
+   */
+  async clearCurrent(){
+    const handle = findNodeHandle(this._ref.current);
+    if(handle){
+      await ZarMeasureModule.clearCurrent(handle);
+    }
+  }
+
+  /**
    * Removes the last added measurement, if any, or removes the previously
    * added partial node (stops current measurement).
    */

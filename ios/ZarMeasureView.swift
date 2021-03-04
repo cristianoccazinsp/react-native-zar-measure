@@ -39,6 +39,17 @@ import ARKit
         measurementLabel.text = ""
     }
     
+    // removes the current measurement step, if any
+    func clearCurrent()
+    {
+        if let current = currentNode {
+            current.removeFromParentNode()
+            lineNode?.removeFromParentNode()
+            currentNode = nil
+            lineNode = nil
+        }
+    }
+    
     // removes the last added measurement
     func removeLast()
     {
@@ -56,7 +67,6 @@ import ARKit
             measurements.removeLast()
         }
     }
-    
     
     func removeMeasurement(_ id : String) -> MeasurementLine?
     {
@@ -533,6 +543,8 @@ import ARKit
             if let _textNode = textNode {
                 if let measurement = measurements.first(where: {_textNode.id == $0.id}){
                     self.onTextTap?(["measurement": measurement.toDict(), "location": ["x": touchLocation.x, "y": touchLocation.y]])
+                    
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     
                     return
                 }

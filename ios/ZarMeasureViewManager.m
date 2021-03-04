@@ -18,6 +18,8 @@ RCT_EXPORT_VIEW_PROPERTY(onTextTap, RCTDirectEventBlock)
 
 RCT_EXTERN_METHOD(clear: (nonnull NSNumber *)node resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(clearCurrent: (nonnull NSNumber *)node resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
+
 RCT_EXTERN_METHOD(removeLast: (nonnull NSNumber *)node resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(removeMeasurement: (nonnull NSNumber *)node nodeId:(nonnull NSString *)nid resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
