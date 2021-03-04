@@ -98,6 +98,14 @@ type MeasurementLine = {
   distance: number // in meters
 }
 
+type MeasurementLine2D = {
+  id: string,
+  node1: MeasurementNode,
+  node2: MeasurementNode,
+  bounds: {width: number, height: number}, // image bounds
+  distance: number // in meters in 3rd world
+}
+
 export const androidCameraPermissionOptions = {
   title: 'Permission to use camera',
   message: 'We need your permission to use your camera.',
@@ -202,7 +210,7 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    * where measurements are in the 2D coordinate of the image (0,0 is top left).
    * Only those nodes which are in the picture are returned.
    */
-  async takePicture(path) : {error: string, measurements: [MeasurementLine]} {
+  async takePicture(path) : {error: string, measurements: [MeasurementLine2D]} {
     const handle = findNodeHandle(this._ref.current);
     if(handle){
       return await ZarMeasureModule.takePicture(handle, path);

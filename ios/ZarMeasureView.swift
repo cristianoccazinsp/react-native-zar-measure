@@ -1072,7 +1072,11 @@ class MeasurementGroup {
             
             var res : MeasurementLine2D = [
                 "id": id,
-                "distance": self.distance
+                "distance": self.distance,
+                "bounds": [
+                    "width": size.width,
+                    "height": size.height
+                ]
             ]
             
             if (projected1.x >= 0 && projected1.x <= size.width && projected1.y >= 0 && projected1.y <= size.height){
