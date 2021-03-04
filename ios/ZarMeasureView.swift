@@ -30,7 +30,7 @@ import ARKit
         targetNode?.removeFromParentNode()
         currentNode?.removeFromParentNode()
      
-        while let n = self.sceneView.scene.rootNode.childNodes.first { n.removeFromParentNode()
+        while let n = rootNode.childNodes.first { n.removeFromParentNode()
         }
         
         lineNode = nil
@@ -71,6 +71,7 @@ import ARKit
         else{
             // Makes a new sphere with the created method
             let sphere = SphereNode(at: currentPosition!, color: self.nodeColor)
+            sphere.setScale(sceneView: self.sceneView)
             
             guard let cameraDistance = result?.distanceFromCamera(self.sceneView) else {
                 return("Camera not available", nil, nil)
@@ -91,22 +92,27 @@ import ARKit
                 targetNode = nil
 
                 // Adds a new measurement and clear current node
+                
+                let newText = TextNode(between: current.position, and: sphere.position, textLabel: self.getMeasureString(distance), textColor: self.nodeColor)
+                newText.setScale(sceneView: self.sceneView)
+                
                 let newLine = LineNode(from: current.position, to: sphere.position, lineColor: self.textColor)
-                let newText = TextNode(between: current.position, and: sphere.position, textLabel: self.getMeasureString(distance), textColor: self.nodeColor, sceneView: self.sceneView)
+                newLine.setScale(sceneView: self.sceneView, in: newText)
                
                 let newMeasure = MeasurementGroup(current, sphere, newLine, newText)
                 measurements.append(newMeasure)
                 
                 // add all objects to the scene
-                self.sceneView.scene.rootNode.addChildNode(sphere)
-                self.sceneView.scene.rootNode.addChildNode(newLine)
-                self.sceneView.scene.rootNode.addChildNode(newText)
+                self.rootNode.addChildNode(sphere)
+                self.rootNode.addChildNode(newLine)
+                self.rootNode.addChildNode(newText)
                 
                 // clear current node to allow new measurement
                 if setCurrent{
                     // clone it
                     currentNode = SphereNode(at: sphere.position, color: self.nodeColor)
-                    self.sceneView.scene.rootNode.addChildNode(currentNode!)
+                    currentNode?.setScale(sceneView: self.sceneView)
+                    self.rootNode.addChildNode(currentNode!)
                 }
                 else {
                     currentNode = nil
@@ -117,7 +123,7 @@ import ARKit
             } else {
                 // Add the sphere as the current node
                 currentNode = sphere
-                self.sceneView.scene.rootNode.addChildNode(sphere)
+                self.rootNode.addChildNode(sphere)
                 
                 return (nil, nil, cameraDistance)
             }
@@ -167,6 +173,7 @@ import ARKit
 
     // MARK: Private properties
     private var sceneView = ARSCNView()
+    private var rootNode = SCNNode()
     private var coachingView : ARCoachingOverlayView = ARCoachingOverlayView()
     private var lastScaled = TimeInterval(0)
     private var vibrated = false
@@ -228,10 +235,12 @@ import ARKit
             
             coachingView.delegate = nil
             coachingView.session = nil
+            
             sceneView.gestureRecognizers?.removeAll()
             sceneView.delegate = nil
             sceneView.session.delegate = nil
             sceneView.session.pause()
+            
             arReady = false
             arStatus = "off"
             measuringStatus = "off"
@@ -252,7 +261,7 @@ import ARKit
             } else {
                 // Fallback on earlier versions
             }
-            
+        
             
             sceneView.preferredFramesPerSecond = 30
             sceneView.automaticallyUpdatesLighting = true
@@ -268,8 +277,6 @@ import ARKit
             arReady = false
             arStatus = "off"
             measuringStatus = "off"
-            lastScaled = TimeInterval(0)
-            vibrated = false
             
             // Add coaching view
             coachingView.delegate = self
@@ -294,6 +301,9 @@ import ARKit
         
         // add our main scene view
         addSubview(sceneView)
+        
+        // add our main root node
+        sceneView.scene.rootNode.addChildNode(rootNode)
         
         // coaching view
         coachingView.autoresizingMask = [
@@ -377,10 +387,15 @@ import ARKit
             
             guard let self = self else {return}
             
-            // update text nodes from measurements
+            // update text and nodes scales from measurements
             for t in self.measurements {
                 t.text.setScale(sceneView: self.sceneView)
+                t.node1.setScale(sceneView: self.sceneView)
+                t.node2.setScale(sceneView: self.sceneView)
+                t.line.setScale(sceneView: self.sceneView, in: t.text)
             }
+            
+            
             
             // always remoe this since we re-create it every time
             self.lineNode?.removeFromParentNode()
@@ -411,7 +426,7 @@ import ARKit
                     
                     // line node
                     self.lineNode = LineNode(from: start.position, to: position, lineColor: color)
-                    self.sceneView.scene.rootNode.addChildNode(self.lineNode!)
+                    self.rootNode.addChildNode(self.lineNode!)
                     
                     // target node exists, update it
                     if let target = self.targetNode{
@@ -421,7 +436,7 @@ import ARKit
                     // otherwise, re-create it
                     else{
                         self.targetNode = TargetNode(at: position, color: color)
-                        self.sceneView.scene.rootNode.addChildNode(self.targetNode!)
+                        self.rootNode.addChildNode(self.targetNode!)
                     }
                     
                     
@@ -443,13 +458,14 @@ import ARKit
                     // otherwise, re-create it
                     else{
                         self.targetNode = TargetNode(at: position, color: color)
-                        self.sceneView.scene.rootNode.addChildNode(self.targetNode!)
+                        self.rootNode.addChildNode(self.targetNode!)
                     }
                 }
                 
+                
                 // throttle rotation changes to avoid odd effects
                 if (time - self.lastScaled > self.scaleTimeout){
-                    self.targetNode?.setScaleAndAnchor(sceneView: self.sceneView, hitResult: result!, animation: self.scaleTimeout)
+                    self.targetNode?.setDonutScale(sceneView: self.sceneView, hitResult: result!, animation: self.scaleTimeout)
                     
                     if closeNode && !self.vibrated {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -470,6 +486,13 @@ import ARKit
                 self.targetNode = nil
                 
                 mStatus = "error"
+            }
+            
+            // if target node, scale it at the end even if error
+            self.targetNode?.setSphereScale(sceneView: self.sceneView)
+            
+            if let lineNode = self.lineNode, let targetNode = self.targetNode {
+                lineNode.setScale(sceneView: self.sceneView, in: targetNode)
             }
             
             if(mStatus != self.measuringStatus){
@@ -655,7 +678,10 @@ extension ARRaycastResult {
     }
 }
 
+@available(iOS 11.0, *)
 class LineNode: SCNNode {
+    private let box = SCNBox()
+    private let width = CGFloat(0.002)
     
     init(from vectorA: SCNVector3, to vectorB: SCNVector3, lineColor color: UIColor) {
         super.init()
@@ -670,14 +696,22 @@ class LineNode: SCNNode {
         let nodeZAlign = SCNNode()
         nodeZAlign.eulerAngles.x = Float.pi/2
         
-        let box = SCNBox(width: 0.003, height: height, length: 0.003, chamferRadius: 0)
+        // initialize box
+        box.width = width
+        box.height = height
+        box.length = width
+        box.chamferRadius = 0
+        
         let material = SCNMaterial()
         material.diffuse.contents = color
+        material.readsFromDepthBuffer = false
+        material.writesToDepthBuffer = false
         box.materials = [material]
         
         
         let nodeLine = SCNNode(geometry: box)
-        nodeLine.position.y = Float(-height/2) + 0.003
+        nodeLine.renderingOrder = 0
+        nodeLine.position.y = Float(-height/2) + 0.001
         nodeZAlign.addChildNode(nodeLine)
         
         self.addChildNode(nodeZAlign)
@@ -689,8 +723,19 @@ class LineNode: SCNNode {
         super.init(coder: aDecoder)
     }
     
+    func setScale(sceneView view : ARSCNView, in relationTo:SCNNode){
+        guard let pov = view.pointOfView else {
+            return
+        }
+        let distance = pov.distance(to: relationTo)
+        let scale = CGFloat(0.5 + distance * 0.8)
+        
+        box.width = CGFloat(width * scale)
+        box.length = CGFloat(width * scale)
+    }
 }
 
+@available(iOS 11.0, *)
 class SphereNode: SCNNode {
     
     init(at position: SCNVector3, color nodeColor: UIColor) {
@@ -711,6 +756,15 @@ class SphereNode: SCNNode {
         self.geometry = sphere
         self.position = position
         self.renderingOrder = 0
+    }
+    
+    func setScale(sceneView view : ARSCNView){
+        guard let pov = view.pointOfView else {
+            return
+        }
+        let distance = pov.distance(to: self)
+        let scale = Float(0.5 + distance * 0.5)
+        self.scale = SCNVector3Make(scale, scale, scale)
     }
     
     required init?(coder aDecoder: NSCoder) {
@@ -746,7 +800,7 @@ class TargetNode: SCNNode {
         sphereMaterial.readsFromDepthBuffer = false
         sphereMaterial.writesToDepthBuffer = false
         
-        let sphere = SCNSphere(radius: 0.009) // slightly bigger
+        let sphere = SCNSphere(radius: 0.008)
         sphere.firstMaterial = sphereMaterial
         
         let sphereNode = SCNNode(geometry: sphere)
@@ -771,12 +825,20 @@ class TargetNode: SCNNode {
         }
     }
     
-    func setScaleAndAnchor(sceneView view : ARSCNView, hitResult hit: ARRaycastResult, animation duration: Double){
-//        if let pov = view.pointOfView {
-//            let distance = pov.distance(to: self)
-//            let scale = Float((CGFloat(0.5) * distance))
-//            self.scale = SCNVector3Make(scale, scale, scale)
-//        }
+    func setSphereScale(sceneView view : ARSCNView){
+        guard let pov = view.pointOfView else {
+            return
+        }
+        guard let sphere = self.childNode(withName: "sphere", recursively: false) else {
+            return
+        }
+
+        let distance = pov.distance(to: self)
+        let scale = Float(0.5 + distance * 0.5)
+        sphere.scale = SCNVector3Make(scale, scale, scale)
+    }
+    
+    func setDonutScale(sceneView view : ARSCNView, hitResult hit: ARRaycastResult, animation duration: Double){
         
         guard let donut = self.childNode(withName: "donut", recursively: false) else {return}
         
@@ -817,7 +879,7 @@ class TextNode: SCNNode {
     
     private let extrusionDepth: CGFloat = 0.1
     
-    init(between vectorA: SCNVector3, and vectorB: SCNVector3, textLabel label: String, textColor color: UIColor, sceneView view : ARSCNView) {
+    init(between vectorA: SCNVector3, and vectorB: SCNVector3, textLabel label: String, textColor color: UIColor) {
         super.init()
         
         let constraint = SCNBillboardConstraint()
@@ -848,8 +910,6 @@ class TextNode: SCNNode {
         self.position = SCNVector3(x, y, z)
         self.constraints = [constraint]
         self.renderingOrder = 10
-        self.setScale(sceneView: view)
-        
         
         // Add background
         let bound = SCNVector3Make(max.x - min.x,
@@ -879,7 +939,7 @@ class TextNode: SCNNode {
             return
         }
         let distance = pov.distance(to: self)
-        let scale = Float((CGFloat(0.01) * distance))
+        let scale = Float(0.01 * distance)
         self.scale = SCNVector3Make(scale, scale, scale)
     }
     
