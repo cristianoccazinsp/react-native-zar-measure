@@ -235,9 +235,14 @@ import ARKit
     private var rootNode = SCNNode()
     private var coachingView : ARCoachingOverlayView = ARCoachingOverlayView()
     private var lastHitResult: (String?, SCNVector3?, ARRaycastResult?, Bool) = (nil, nil, nil, false)
-    private var lastScaled = TimeInterval(0)
     private var takingPicture = false
-    private var scaleTimeout = 0.2
+    
+    // throttle some operations
+    private var donutScaleTimeout = 0.2
+    private var nodesScaleTimeout = 0.1
+    private var donutLastScaled = TimeInterval(0)
+    private var nodesLastScaled = TimeInterval(0)
+    
     // colors good enough for white surfaces
     private let nodeColor : UIColor = UIColor(red: 255/255.0, green: 153/255.0, blue: 0, alpha: 1)
     private let nodeColorErr : UIColor = UIColor(red: 240/255.0, green: 0, blue: 0, alpha: 1)
@@ -409,6 +414,44 @@ import ARKit
             return
         }
         
+        // these always need to be updated
+        DispatchQueue.main.async { [weak self] in
+            
+            guard let self = self else {return}
+            
+            // update text and nodes scales from measurements
+            if (time - self.nodesScaleTimeout > self.nodesScaleTimeout){
+                
+                for t in self.measurements {
+                    t.text.setScale(sceneView: self.sceneView)
+                    t.node1.setScale(sceneView: self.sceneView)
+                    t.node2.setScale(sceneView: self.sceneView)
+                    t.line.setScale(sceneView: self.sceneView, in: t.text)
+                }
+                
+                // scale now, and maybe later
+                self.targetNode?.setSphereScale(sceneView: self.sceneView)
+                
+                self.nodesLastScaled = time
+            }
+            
+            if !self.arReady{
+                // remove previous nodes
+                self.lineNode?.removeFromParentNode()
+                self.lineNode = nil
+                self.targetNode?.removeFromParentNode()
+                self.targetNode = nil
+                self.currentNode?.removeFromParentNode()
+                self.currentNode = nil
+            }
+        }
+        
+        
+        if !arReady {
+            lastHitResult = (nil, nil, nil, false)
+            return
+        }
+        
         let (err, currentPosition, result, closeNode) = doRayTestOnExistingPlanes(sceneCenter)
         var mustVibrate = false
         
@@ -417,7 +460,7 @@ import ARKit
             
             mustVibrate = (lastHitResult.3 != closeNode)
             
-            if _pos.distance(to: _prev) < dist * 0.001 {
+            if (_pos.distance(to: _prev) < dist * 0.001) && (err == lastHitResult.0) {
                 return
             }
         }
@@ -428,22 +471,7 @@ import ARKit
             
             guard let self = self else {return}
             
-            // update text and nodes scales from measurements
-            for t in self.measurements {
-                t.text.setScale(sceneView: self.sceneView)
-                t.node1.setScale(sceneView: self.sceneView)
-                t.node2.setScale(sceneView: self.sceneView)
-                t.line.setScale(sceneView: self.sceneView, in: t.text)
-            }
-            
-            
-            if !self.arReady{
-                // remove previous nodes
-                self.lineNode?.removeFromParentNode()
-                self.lineNode = nil
-                self.targetNode?.removeFromParentNode()
-                self.targetNode = nil
-                
+            if !self.arReady {
                 return
             }
             
@@ -453,6 +481,7 @@ import ARKit
             // remove these since they are always re-created
             // and set/clear label
             self.lineNode?.removeFromParentNode()
+            self.lineNode = nil
             self.measurementLabel.text = err != nil ? err : ""
             
             if let position = currentPosition {
@@ -504,10 +533,10 @@ import ARKit
                 
                 
                 // throttle rotation changes to avoid odd effects
-                if (time - self.lastScaled > self.scaleTimeout){
-                    self.targetNode?.setDonutScale(sceneView: self.sceneView, hitResult: result!, animation: self.scaleTimeout)
+                if (time - self.donutScaleTimeout > self.donutScaleTimeout){
+                    self.targetNode?.setDonutScale(sceneView: self.sceneView, hitResult: result!, animation: self.donutScaleTimeout)
                     
-                    self.lastScaled = time
+                    self.donutLastScaled = time
                 }
                 
                 // vibration on close changes
