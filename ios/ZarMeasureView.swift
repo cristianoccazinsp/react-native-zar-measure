@@ -12,7 +12,7 @@ import ARKit
     @objc public var units: String = "m"
     @objc public var minDistanceCamera: CGFloat = 0.05
     @objc public var maxDistanceCamera: CGFloat = 5
-    @objc public var intersectDistance: CGFloat = 0.05
+    @objc public var intersectDistance: CGFloat = 0.1
     @objc public var onARStatusChange: RCTDirectEventBlock? = nil
     @objc public var onMeasuringStatusChange: RCTDirectEventBlock? = nil
     @objc public var onMountError: RCTDirectEventBlock? = nil
@@ -37,6 +37,8 @@ import ARKit
         targetNode = nil
         currentNode = nil
         measurementLabel.text = ""
+        lastHitResult = (nil, nil, nil, false)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
     
     // removes the current measurement step, if any
@@ -47,6 +49,8 @@ import ARKit
             lineNode?.removeFromParentNode()
             currentNode = nil
             lineNode = nil
+            lastHitResult = (nil, nil, nil, false)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
         }
     }
     
@@ -58,6 +62,8 @@ import ARKit
             lineNode?.removeFromParentNode()
             currentNode = nil
             lineNode = nil
+            lastHitResult = (nil, nil, nil, false)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
         }
         else if let last = measurements.last{
             last.line.removeFromParentNode()
@@ -65,6 +71,7 @@ import ARKit
             last.node2.removeFromParentNode()
             last.text.removeFromParentNode()
             measurements.removeLast()
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
         }
     }
     
@@ -79,6 +86,7 @@ import ARKit
         node.node1.removeFromParentNode()
         node.node2.removeFromParentNode()
         node.text.removeFromParentNode()
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
         
         return node.toDict()
     }
@@ -95,7 +103,13 @@ import ARKit
     func addPoint(_ setCurrent : Bool) -> (String?, MeasurementLine?, CGFloat?)
     {
         
-        let (er, currentPosition, result, _) = self.doRayTestOnExistingPlanes()
+        let (er, currentPosition, result, _) = self.lastHitResult
+        
+        defer {
+            // clear hit results on adding point so we refresh existing nodes
+            // due to
+            self.lastHitResult = (nil, nil, nil, false)
+        }
             
         if(currentPosition == nil || result == nil){
             return (er, nil, nil)
@@ -150,6 +164,8 @@ import ARKit
                     currentNode = nil
                 }
                 
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                
                 return (nil, newMeasure.toDict(), cameraDistance)
 
             } else {
@@ -157,6 +173,7 @@ import ARKit
                 currentNode = sphere
                 self.rootNode.addChildNode(sphere)
                 
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 return (nil, nil, cameraDistance)
             }
         }
@@ -214,10 +231,11 @@ import ARKit
 
     // MARK: Private properties
     private var sceneView = ARSCNView()
+    private var sceneCenter = CGPoint(x: 0, y: 0)
     private var rootNode = SCNNode()
     private var coachingView : ARCoachingOverlayView = ARCoachingOverlayView()
+    private var lastHitResult: (String?, SCNVector3?, ARRaycastResult?, Bool) = (nil, nil, nil, false)
     private var lastScaled = TimeInterval(0)
-    private var vibrated = false
     private var takingPicture = false
     private var scaleTimeout = 0.2
     // colors good enough for white surfaces
@@ -259,6 +277,7 @@ import ARKit
         super.layoutSubviews()
         
         sceneView.frame = CGRect(x: 0, y: 0, width: frame.size.width, height: frame.size.height)
+        sceneCenter = sceneView.center
         
         // measurement label, slightly smaller in height
         // so we don't overlap with the center
@@ -293,6 +312,7 @@ import ARKit
             let configuration = ARWorldTrackingConfiguration()
             
             configuration.planeDetection = [.vertical, .horizontal]
+            configuration.worldAlignment = .gravity
             
             // this should technically use Lidar sensors and greatly
             // improve accuracy
@@ -389,6 +409,21 @@ import ARKit
             return
         }
         
+        let (err, currentPosition, result, closeNode) = doRayTestOnExistingPlanes(sceneCenter)
+        var mustVibrate = false
+        
+        // if distance between current and last did not change considerably, do nothing
+        if let _pos = currentPosition, let _prev = lastHitResult.1, let dist = result?.distanceFromCamera(sceneView) {
+            
+            mustVibrate = (lastHitResult.3 != closeNode)
+            
+            if _pos.distance(to: _prev) < dist * 0.001 {
+                return
+            }
+        }
+        
+        self.lastHitResult = (err, currentPosition, result, closeNode)
+        
         DispatchQueue.main.async { [weak self] in
             
             guard let self = self else {return}
@@ -402,13 +437,10 @@ import ARKit
             }
             
             
-            
-            // always remoe this since we re-create it every time
-            self.lineNode?.removeFromParentNode()
-            self.lineNode = nil
-            
             if !self.arReady{
-                // remove previous target as well
+                // remove previous nodes
+                self.lineNode?.removeFromParentNode()
+                self.lineNode = nil
                 self.targetNode?.removeFromParentNode()
                 self.targetNode = nil
                 
@@ -418,8 +450,10 @@ import ARKit
             
             let mStatus : String
             
-            let (err, currentPosition, result, closeNode) = self.doRayTestOnExistingPlanes()
-            
+            // remove these since they are always re-created
+            // and set/clear label
+            self.lineNode?.removeFromParentNode()
+            self.measurementLabel.text = err != nil ? err : ""
             
             if let position = currentPosition {
             
@@ -473,15 +507,12 @@ import ARKit
                 if (time - self.lastScaled > self.scaleTimeout){
                     self.targetNode?.setDonutScale(sceneView: self.sceneView, hitResult: result!, animation: self.scaleTimeout)
                     
-                    if closeNode && !self.vibrated {
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        self.vibrated = true
-                    }
-                    else if(!closeNode){
-                        self.vibrated = false
-                    }
-                    
                     self.lastScaled = time
+                }
+                
+                // vibration on close changes
+                if mustVibrate {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 }
                 
                 mStatus = err == nil ? "ready" : "error"
@@ -505,9 +536,7 @@ import ARKit
                 self.measuringStatus = mStatus
                 self.onMeasuringStatusChange?(["status": mStatus])
             }
-            
         }
-        
     }
     
     
@@ -604,19 +633,22 @@ import ARKit
         measurementLabel.text = getMeasureString(value)
     }
     
-    private func doRayTestOnExistingPlanes() -> (String?, SCNVector3?, ARRaycastResult?, Bool) {
+    private func doRayTestOnExistingPlanes(_ location: CGPoint) -> (String?, SCNVector3?, ARRaycastResult?, Bool) {
         
         if(!arReady){
-            return ("Not Ready", nil, nil, false)
+            return ("Not Ready.", nil, nil, false)
         }
         
-        let location = self.sceneView.center
-       
+        guard let cameraTransform = sceneView.session.currentFrame?.camera.transform else {
+            return ("Camera position is unknown.", nil, nil, false)
+        }
+        
+        let cameraPos = SCNVector3.positionFrom(matrix: cameraTransform)
+        
         guard let query = sceneView.raycastQuery(from: location, allowing: .estimatedPlane, alignment: .any) else{
             
             // this should never happen
-            measurementLabel.text = "Detection failed."
-            return ("Detection failed", nil, nil, false)
+            return ("Detection failed.", nil, nil, false)
         }
         
         var hitTest = sceneView.session.raycast(query)
@@ -624,47 +656,20 @@ import ARKit
         // if hit test count is 0, try with an infinite plane
         // this matches more the native app, and prevents us from getting lots of error messages
         if hitTest.count == 0 {
-            
             guard let queryInfinite = sceneView.raycastQuery(from: location, allowing: .existingPlaneInfinite, alignment: .any) else{
                 
                 // this should never happen
-                measurementLabel.text = "Detection failed."
-                return ("Detection failed", nil, nil, false)
+                return ("Detection failed.", nil, nil, false)
             }
             
             hitTest = sceneView.session.raycast(queryInfinite)
         }
-                
+        
+            
         // Try to get the most accurate results first.
         // That is, the result has an anchor, and is further than our min distance
         var _result : ARRaycastResult? = nil
         
-        guard let cameraTransform = sceneView.session.currentFrame?.camera.transform else {
-            measurementLabel.text = "Camera position is unknown."
-            return ("Camera position unknown", nil, nil, false)
-        }
-        let cameraPos = SCNVector3.positionFrom(matrix: cameraTransform)
-        
-        
-//       // first, try to get anchors that meet our min distance requirement
-//        for r in hitTest {
-//            if (r.anchor as? ARPlaneAnchor) != nil {
-//                if r.distanceFromCamera(cameraPos) >= minDistanceCamera{
-//                    _result = r
-//                    break
-//                }
-//            }
-//        }
-//
-//        // result still not found, try again
-//        if _result == nil {
-//            for r in hitTest {
-//                if r.distanceFromCamera(cameraPos) >= minDistanceCamera{
-//                    _result = r
-//                    break
-//                }
-//            }
-//        }
         
         // first try to get a point that meets min distance
         // no need to check for anchors anymore.
@@ -682,8 +687,7 @@ import ARKit
         
         // Assigns the most accurate result to a constant if it is non-nil
         guard let result = _result else {
-            measurementLabel.text = "Please check your lightning and make sure you are not too far from the surface."
-            return ("Detection failed", nil, nil, false)
+            return ("Please check your lightning and make sure you are not too far from the surface.", nil, nil, false)
         }
         
         
@@ -693,32 +697,26 @@ import ARKit
         let distance = cameraPos.distance(to: hitPos)
         
         if(distance < self.minDistanceCamera){
-            measurementLabel.text = "Make sure you are not too close to the surface, or improve lightning conditions."
-            
-            return ("Detection failed: too close to the surface", nil, nil, false)
+            return ("Make sure you are not too close to the surface, or improve lightning conditions.", nil, nil, false)
         }
         
         if(distance > self.maxDistanceCamera){
-            measurementLabel.text = "Make sure you are not too far from the surface, or improve lightning conditions."
-            
-            return ("Detection failed: too far from the surface", hitPos, result, false)
+            return ("Make sure you are not too far from the surface, or improve lightning conditions.", hitPos, result, false)
         }
         
-        measurementLabel.text = ""
-        
-        let closeNode = findNearSphere(hitPos)
+        let closeNode = findNearSphere(hitPos, intersectDistance * distance)
         
         return (nil, closeNode?.position ?? hitPos, result, closeNode != nil)
     }
     
     // given a hit result, searches measurements
     // to find a close match
-    func findNearSphere(_ to : SCNVector3) -> SphereNode? {
+    func findNearSphere(_ to : SCNVector3, _ minDistance:CGFloat) -> SphereNode? {
         for m in measurements {
-            if m.node1.position.distance(to: to) < intersectDistance {
+            if m.node1.position.distance(to: to) < minDistance {
                 return m.node1
             }
-            if m.node2.position.distance(to: to) < intersectDistance {
+            if m.node2.position.distance(to: to) < minDistance {
                 return m.node2
             }
         }
@@ -814,7 +812,7 @@ class LineNode: SCNNode {
         guard let pov = view.pointOfView else {
             return
         }
-        let distance = pov.distance(to: relationTo)
+        let distance = min(pov.distance(to: relationTo), 5)
         let scale = CGFloat(0.5 + distance * 0.8)
         
         box.width = CGFloat(width * scale)
@@ -849,7 +847,7 @@ class SphereNode: SCNNode {
         guard let pov = view.pointOfView else {
             return
         }
-        let distance = pov.distance(to: self)
+        let distance = min(pov.distance(to: self), 5)
         let scale = Float(0.5 + distance * 0.5)
         self.scale = SCNVector3Make(scale, scale, scale)
     }
@@ -920,7 +918,7 @@ class TargetNode: SCNNode {
             return
         }
 
-        let distance = pov.distance(to: self)
+        let distance = min(pov.distance(to: self), 5)
         let scale = Float(0.5 + distance * 0.5)
         sphere.scale = SCNVector3Make(scale, scale, scale)
     }

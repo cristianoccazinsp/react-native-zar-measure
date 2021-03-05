@@ -187,7 +187,7 @@ class ZarMeasureViewManager: RCTViewManager {
                 view.takePicture(path){ (err, measurements) in
                     if(err == nil){
                         resolve(["error": nil, "measurements": measurements])
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     }
                     else{
                         resolve(["error": err])
