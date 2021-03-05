@@ -646,23 +646,32 @@ import ARKit
         let cameraPos = SCNVector3.positionFrom(matrix: cameraTransform)
         
         
-        // first, try to get anchors that meet our min distance requirement
-        for r in hitTest {
-            if (r.anchor as? ARPlaneAnchor) != nil {
-                if r.distanceFromCamera(cameraPos) >= minDistanceCamera{
-                    _result = r
-                    break
-                }
-            }
-        }
+//       // first, try to get anchors that meet our min distance requirement
+//        for r in hitTest {
+//            if (r.anchor as? ARPlaneAnchor) != nil {
+//                if r.distanceFromCamera(cameraPos) >= minDistanceCamera{
+//                    _result = r
+//                    break
+//                }
+//            }
+//        }
+//
+//        // result still not found, try again
+//        if _result == nil {
+//            for r in hitTest {
+//                if r.distanceFromCamera(cameraPos) >= minDistanceCamera{
+//                    _result = r
+//                    break
+//                }
+//            }
+//        }
         
-        // result still not found, try again
-        if _result == nil {
-            for r in hitTest {
-                if r.distanceFromCamera(cameraPos) >= minDistanceCamera{
-                    _result = r
-                    break
-                }
+        // first try to get a point that meets min distance
+        // no need to check for anchors anymore.
+        for r in hitTest {
+            if r.distanceFromCamera(cameraPos) >= minDistanceCamera{
+                _result = r
+                break
             }
         }
         
