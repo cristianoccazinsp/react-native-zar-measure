@@ -97,6 +97,7 @@ type MeasurementLine = {
   id: string,
   node1: MeasurementNode,
   node2: MeasurementNode,
+  label: String, // text node label
   distance: number // in meters
 }
 
@@ -104,6 +105,7 @@ type MeasurementLine2D = {
   id: string,
   node1: MeasurementNode,
   node2: MeasurementNode,
+  label: String, // text node label
   bounds: {width: number, height: number}, // image bounds
   distance: number // in meters in 3rd world
 }
@@ -173,7 +175,8 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     }
   }
 
-  /** Removes a measurmenet by index and returns its data or null if none
+  /**
+   * Removes a measurmenet by index and returns its data or null if none
    *
    * Returns MeasurementLine or null if nothing was removed
    */
@@ -181,6 +184,18 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     const handle = findNodeHandle(this._ref.current);
     if(handle){
       return await ZarMeasureModule.removeMeasurement(handle, id);
+    }
+  }
+
+  /**
+   * Edits an existing measurement text node, setting a custom text.
+   *
+   * Returns updated node, or null if node wasn't found.
+   */
+  async editMeasurement(id, text) : MeasurementLine {
+    const handle = findNodeHandle(this._ref.current);
+    if(handle){
+      return await ZarMeasureModule.editMeasurement(handle, id, text);
     }
   }
 
@@ -206,7 +221,6 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
 
   /**
    * Returns all existing measurements on screen
-   *
    */
   async getMeasurements() : [MeasurementLine] {
     const handle = findNodeHandle(this._ref.current);

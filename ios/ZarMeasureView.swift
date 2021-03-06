@@ -75,7 +75,7 @@ import ARKit
         }
     }
     
-    func removeMeasurement(_ id : String) -> MeasurementLine?
+    func removeMeasurement(_ id:String) -> MeasurementLine?
     {
         guard let idx = measurements.firstIndex(where: {$0.id == id}) else { return nil}
         
@@ -86,6 +86,26 @@ import ARKit
         node.node1.removeFromParentNode()
         node.node2.removeFromParentNode()
         node.text.removeFromParentNode()
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        
+        return node.toDict()
+    }
+    
+    func editMeasurement(_ id:String, _ text:String) -> MeasurementLine?
+    {
+        guard let idx = measurements.firstIndex(where: {$0.id == id}) else { return nil}
+        
+        let node = measurements[idx]
+        
+        // remove node, and create a new one with the text
+        node.text.removeFromParentNode()
+        
+        node.text = TextNode(between: node.node1.position, and: node.node2.position, textLabel: text, textColor: self.nodeColor)
+        node.text.id = node.id
+        node.text.setScale(sceneView: self.sceneView)
+        
+        self.rootNode.addChildNode(node.text)
+        
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         
         return node.toDict()
@@ -993,9 +1013,12 @@ class TextNode: SCNNode {
     
     private let extrusionDepth: CGFloat = 0.1
     public var id : String?
+    public var label = ""
     
     init(between vectorA: SCNVector3, and vectorB: SCNVector3, textLabel label: String, textColor color: UIColor) {
         super.init()
+        
+        self.label = label
         
         let constraint = SCNBillboardConstraint()
         
@@ -1063,6 +1086,7 @@ class TextNode: SCNNode {
     
     required init?(coder aDecoder: NSCoder) {
         super.init(coder: aDecoder)
+        self.label = ""
     }
 }
 
@@ -1073,11 +1097,11 @@ public typealias MeasurementLine2D = Dictionary<String, Any>
 @available(iOS 13, *)
 class MeasurementGroup {
     let id : String
-    let node1 : SphereNode
-    let node2 : SphereNode
-    let line : LineNode
-    let text : TextNode
-    let distance : Float
+    var node1 : SphereNode
+    var node2 : SphereNode
+    var line : LineNode
+    var text : TextNode
+    var distance : Float
     
     init(_ id:String, _ node1:SphereNode, _ node2:SphereNode, _ line:LineNode, _ text:TextNode, _ distance:CGFloat){
         self.id = id
@@ -1102,7 +1126,8 @@ class MeasurementGroup {
                 "y": node2.worldPosition.y,
                 "z": node2.worldPosition.z
             ],
-            "distance": self.distance
+            "distance": self.distance,
+            "label": self.text.label
         ]
     }
     
@@ -1121,6 +1146,7 @@ class MeasurementGroup {
             var res : MeasurementLine2D = [
                 "id": id,
                 "distance": self.distance,
+                "label": self.text.label,
                 "bounds": [
                     "width": size.width,
                     "height": size.height

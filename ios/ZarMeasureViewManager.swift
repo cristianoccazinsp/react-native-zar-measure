@@ -127,6 +127,25 @@ class ZarMeasureViewManager: RCTViewManager {
     }
     
     @objc
+    func editMeasurement(_ node:NSNumber, nodeId nid:String, nodeText text:String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    {
+        if #available(iOS 13, *) {
+            DispatchQueue.main.async { [weak self] in
+                
+                guard let view = self?.bridge.uiManager.view(forReactTag: node) as? ZarMeasureView else {
+                    resolve(nil)
+                    return;
+                }
+                
+                resolve(view.editMeasurement(nid, text))
+            }
+        }
+        else{
+            resolve(nil)
+        }
+    }
+    
+    @objc
     func addPoint(_ node:NSNumber, setCurrent current : Bool, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 13, *) {
