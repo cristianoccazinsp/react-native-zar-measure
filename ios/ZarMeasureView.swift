@@ -1079,7 +1079,7 @@ class TextNode: SCNNode {
         guard let pov = view.pointOfView else {
             return
         }
-        let distance = pov.distance(to: self)
+        let distance = min(pov.distance(to: self), 3)
         let scale = Float(0.01 * distance)
         self.scale = SCNVector3Make(scale, scale, scale)
     }
