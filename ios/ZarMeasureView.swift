@@ -1054,10 +1054,10 @@ class TextNode: SCNNode {
                                    max.y - min.y,
                                    max.z - min.z);
 
-        let plane = SCNPlane(width: CGFloat(bound.x + 3),
-                            height: CGFloat(bound.y + 3))
+        let plane = SCNPlane(width: CGFloat(bound.x + 4),
+                            height: CGFloat(bound.y + 4))
         
-        plane.cornerRadius = 5
+        plane.cornerRadius = 4
         plane.firstMaterial?.diffuse.contents = UIColor.white.withAlphaComponent(0.9)
         plane.firstMaterial?.readsFromDepthBuffer = false
         plane.firstMaterial?.writesToDepthBuffer = false
