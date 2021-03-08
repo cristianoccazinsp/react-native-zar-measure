@@ -1094,14 +1094,14 @@ class HitResult {
     // wrapper for hit results
     var distance : CGFloat
     var transform : simd_float4x4
-    var anchor : ARPlaneAnchor? = nil
+    var anchor : ARAnchor? = nil
     var position : SCNVector3
     var isCloseNode : Bool
     
     init(_ distance:CGFloat, _ hitPos:SCNVector3, _ closeNode:Bool, _ raycast:ARRaycastResult){
         self.distance = distance
         self.transform = raycast.worldTransform
-        self.anchor = raycast.anchor as? ARPlaneAnchor
+        self.anchor = raycast.anchor //as? ARPlaneAnchor
         self.position = hitPos
         self.isCloseNode = closeNode
     }
