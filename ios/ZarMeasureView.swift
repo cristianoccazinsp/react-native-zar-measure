@@ -127,7 +127,7 @@ import ARKit
         
         defer {
             // clear hit results on adding point so we refresh existing nodes
-            // due to
+            // due to some shapes needing to change
             self.lastHitResult = (nil, nil, nil, false)
         }
             
