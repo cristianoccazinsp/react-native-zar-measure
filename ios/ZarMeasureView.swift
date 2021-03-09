@@ -257,8 +257,10 @@ import ARKit
     // throttle some operations
     private var donutScaleTimeout = 0.4
     private var nodesScaleTimeout = 0.1
+    private var closeNodeTimeout = 0.8
     private var donutLastScaled = TimeInterval(0)
     private var nodesLastScaled = TimeInterval(0)
+    private var closeNodeLastTime = TimeInterval(0)
     
     // colors good enough for white surfaces
     private let nodeColor : UIColor = UIColor(red: 255/255.0, green: 153/255.0, blue: 0, alpha: 1)
@@ -479,8 +481,23 @@ import ARKit
             
             mustVibrate = (_prev.isCloseNode != _result.isCloseNode)
             
-            if (_result.position.distance(to: _prev.position) < _result.distance * 0.001) && (err == lastHitResult.0) {
-                return
+            // only do these if error flag didnt change
+            if err == lastHitResult.0 {
+                let dist = _result.position.distance(to: _prev.position)
+                
+                // if distance did not change (significantly)
+                if dist < _result.distance * 0.002 {
+                    return
+                }
+                
+                // otherwise, if we had a close node, check timeout
+                if _prev.isCloseNode && (time - self.closeNodeLastTime < self.closeNodeTimeout) {
+                    return
+                }
+                
+                if _result.isCloseNode {
+                    self.closeNodeLastTime = time
+                }
             }
         }
         

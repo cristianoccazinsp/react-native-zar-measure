@@ -16,7 +16,7 @@ class ZarMeasureViewManager: RCTViewManager {
     @objc
     override func constantsToExport() -> [AnyHashable : Any]! {
         if #available(iOS 13, *) {
-            _supportsAR = ARConfiguration.isSupported
+            _supportsAR = ARConfiguration.isSupported && ARWorldTrackingConfiguration.isSupported
         } else {
             _supportsAR = false
         };
