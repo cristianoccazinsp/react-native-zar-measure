@@ -255,7 +255,7 @@ import ARKit
     private var takingPicture = false
     
     // throttle some operations
-    private var donutScaleTimeout = 0.2
+    private var donutScaleTimeout = 0.4
     private var nodesScaleTimeout = 0.1
     private var donutLastScaled = TimeInterval(0)
     private var nodesLastScaled = TimeInterval(0)
@@ -335,6 +335,7 @@ import ARKit
             
             configuration.planeDetection = [.vertical, .horizontal]
             configuration.worldAlignment = .gravity
+            configuration.isLightEstimationEnabled = false
             
             // this should technically use Lidar sensors and greatly
             // improve accuracy
@@ -348,7 +349,8 @@ import ARKit
         
             
             sceneView.preferredFramesPerSecond = 30
-            sceneView.automaticallyUpdatesLighting = true
+            sceneView.automaticallyUpdatesLighting = false
+            sceneView.rendersCameraGrain = false
             //sceneView.debugOptions = [.showFeaturePoints]
             sceneView.showsStatistics = false
             sceneView.antialiasingMode = .multisampling2X
@@ -550,7 +552,7 @@ import ARKit
                 
                 
                 // throttle rotation changes to avoid odd effects
-                if (time - self.donutScaleTimeout > self.donutScaleTimeout){
+                if (time - self.donutScaleTimeout > self.donutScaleTimeout * 2){
                     self.targetNode?.setDonutScale(sceneView: self.sceneView, hitResult: result!, animation: self.donutScaleTimeout)
                     
                     self.donutLastScaled = time
