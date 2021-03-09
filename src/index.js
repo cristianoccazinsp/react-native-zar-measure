@@ -27,6 +27,12 @@ type ZarMeasureViewProps = {
   /** View to render if auth is not given */
   notAuthorizedView: React.Component,
 
+  /**
+   * if set to true, draws detected plane anchors
+   * default: false
+  */
+  debugMode: boolean,
+
   /** Units to render labels */
   units: 'm' | 'ft',
 
@@ -123,6 +129,7 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     androidCameraPermissionOptions: androidCameraPermissionOptions,
     pendingAuthorizationView: <SafeAreaView><Text>Loading...</Text></SafeAreaView>,
     notAuthorizedView: <SafeAreaView><Text>Not Authorized</Text></SafeAreaView>,
+    debugMode: false,
     units: 'm',
     minDistanceCamera: 0.05,
     maxDistanceCamera: 5,

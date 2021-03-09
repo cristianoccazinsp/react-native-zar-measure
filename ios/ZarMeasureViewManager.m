@@ -10,6 +10,7 @@ RCT_EXPORT_VIEW_PROPERTY(units, NSString)
 RCT_EXPORT_VIEW_PROPERTY(minDistanceCamera, double)
 RCT_EXPORT_VIEW_PROPERTY(maxDistanceCamera, double)
 RCT_EXPORT_VIEW_PROPERTY(intersectDistance, double)
+RCT_EXPORT_VIEW_PROPERTY(debugMode, BOOL)
 
 RCT_EXPORT_VIEW_PROPERTY(onARStatusChange, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onMeasuringStatusChange, RCTDirectEventBlock)

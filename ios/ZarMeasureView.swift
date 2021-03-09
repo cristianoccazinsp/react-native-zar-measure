@@ -13,6 +13,7 @@ import ARKit
     @objc public var minDistanceCamera: CGFloat = 0.05
     @objc public var maxDistanceCamera: CGFloat = 5
     @objc public var intersectDistance: CGFloat = 0.1
+    @objc public var debugMode = false
     @objc public var onARStatusChange: RCTDirectEventBlock? = nil
     @objc public var onMeasuringStatusChange: RCTDirectEventBlock? = nil
     @objc public var onMountError: RCTDirectEventBlock? = nil
@@ -428,6 +429,42 @@ import ARKit
         return false
     }
     
+    public func renderer(_ renderer: SCNSceneRenderer, didAdd node: SCNNode, for anchor: ARAnchor) {
+        if(!debugMode) { return }
+        
+        // Place content only for anchors found by plane detection.
+        guard let planeAnchor = anchor as? ARPlaneAnchor else { return }
+        
+        // Create a node to visualize the plane's bounding rectangle.
+        // Create a custom object to visualize the plane geometry and extent.
+        let plane = DebugPlane(anchor: planeAnchor, in: sceneView, withColor: self.nodeColor)
+        
+        // Add the visualization to the ARKit-managed node so that it tracks
+        // changes in the plane anchor as plane estimation continues.
+        node.addChildNode(plane)
+    }
+    
+    public func renderer(_ renderer: SCNSceneRenderer, didUpdate node: SCNNode, for anchor: ARAnchor) {
+        if(!debugMode) { return }
+        
+        // Update only anchors and nodes set up by `renderer(_:didAdd:for:)`.
+        guard let planeAnchor = anchor as? ARPlaneAnchor,
+            let plane = node.childNodes.first as? DebugPlane
+            else { return }
+        
+        // Update ARSCNPlaneGeometry to the anchor's new estimated shape.
+        if let planeGeometry = plane.meshNode.geometry as? ARSCNPlaneGeometry {
+            planeGeometry.update(from: planeAnchor.geometry)
+        }
+
+        // Update extent visualization to the anchor's new bounding rectangle.
+        if let extentGeometry = plane.extentNode.geometry as? SCNPlane {
+            extentGeometry.width = CGFloat(planeAnchor.extent.x)
+            extentGeometry.height = CGFloat(planeAnchor.extent.z)
+            plane.extentNode.simdPosition = planeAnchor.center
+        }
+    }
+    
     // renderer callback method
     public func renderer(_ renderer: SCNSceneRenderer, updateAtTime time: TimeInterval) {
         
@@ -799,6 +836,7 @@ extension SCNNode {
     }
 }
 
+
 extension SCNVector3 {
     func distance(to destination: SCNVector3) -> CGFloat {
         let dx = destination.x - x
@@ -812,6 +850,7 @@ extension SCNVector3 {
         return SCNVector3(column.x, column.y, column.z)
     }
 }
+
 
 @available(iOS 13.0, *)
 extension ARRaycastResult {
@@ -828,6 +867,7 @@ extension ARRaycastResult {
         return from.distance(to: SCNVector3.positionFrom(matrix: worldTransform))
     }
 }
+
 
 @available(iOS 11.0, *)
 class LineNode: SCNNode {
@@ -885,6 +925,7 @@ class LineNode: SCNNode {
         box.length = CGFloat(width * scale)
     }
 }
+
 
 @available(iOS 11.0, *)
 class SphereNode: SCNNode {
@@ -1104,6 +1145,72 @@ class TextNode: SCNNode {
     required init?(coder aDecoder: NSCoder) {
         super.init(coder: aDecoder)
         self.label = ""
+    }
+}
+
+
+@available(iOS 13.0, *)
+class DebugPlane: SCNNode {
+    
+    let meshNode: SCNNode
+    let extentNode: SCNNode
+    let color: UIColor
+    var classificationNode: SCNNode?
+    
+    /// - Tag: VisualizePlane
+    init(anchor: ARPlaneAnchor, in sceneView: ARSCNView, withColor color: UIColor) {
+        
+        // Create a mesh to visualize the estimated shape of the plane.
+        guard let meshGeometry = ARSCNPlaneGeometry(device: sceneView.device!)
+            else { fatalError("Can't create plane geometry") }
+        
+        meshGeometry.update(from: anchor.geometry)
+        meshNode = SCNNode(geometry: meshGeometry)
+        
+        // Create a node to visualize the plane's bounding rectangle.
+        let extentPlane = SCNPlane(width: CGFloat(anchor.extent.x), height: CGFloat(anchor.extent.z))
+        extentNode = SCNNode(geometry: extentPlane)
+        extentNode.simdPosition = anchor.center
+        
+        extentPlane.firstMaterial?.readsFromDepthBuffer = false
+        extentPlane.firstMaterial?.writesToDepthBuffer = false
+        meshGeometry.firstMaterial?.readsFromDepthBuffer = false
+        meshGeometry.firstMaterial?.writesToDepthBuffer = false
+        extentNode.renderingOrder = -2
+        meshNode.renderingOrder = -1
+        
+        // `SCNPlane` is vertically oriented in its local coordinate space, so
+        // rotate it to match the orientation of `ARPlaneAnchor`.
+        extentNode.eulerAngles.x = -.pi / 2
+        self.color = color
+
+        super.init()
+
+        self.setupMeshVisualStyle()
+        self.setupExtentVisualStyle()
+
+        // Add the plane extent and plane geometry as child nodes so they appear in the scene.
+        addChildNode(meshNode)
+        addChildNode(extentNode)
+    }
+    
+    required init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    private func setupMeshVisualStyle() {
+        // Make the plane visualization semitransparent to clearly show real-world placement.
+        //meshNode.opacity = 0.25
+        
+        // Use color and blend mode to make planes stand out.
+        meshNode.geometry?.firstMaterial?.diffuse.contents = color.withAlphaComponent(0.5)
+        
+    }
+    
+    private func setupExtentVisualStyle() {
+        // Make the extent visualization semitransparent to clearly show real-world placement.
+        //extentNode.opacity = 0.6
+        extentNode.geometry?.firstMaterial?.diffuse.contents = color.withAlphaComponent(0.5)
     }
 }
 
