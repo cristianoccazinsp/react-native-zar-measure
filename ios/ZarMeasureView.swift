@@ -437,7 +437,8 @@ import ARKit
         
         // Create a node to visualize the plane's bounding rectangle.
         // Create a custom object to visualize the plane geometry and extent.
-        let plane = DebugPlane(anchor: planeAnchor, in: sceneView, withColor: self.nodeColor)
+        let color = planeAnchor.alignment == .vertical ? self.nodeColor : self.nodeColorClose
+        let plane = DebugPlane(anchor: planeAnchor, in: sceneView, withColor: color)
         
         // Add the visualization to the ARKit-managed node so that it tracks
         // changes in the plane anchor as plane estimation continues.
