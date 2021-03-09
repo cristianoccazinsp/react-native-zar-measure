@@ -58,6 +58,11 @@ type ZarMeasureViewProps = {
    */
   intersectDistance: number,
 
+  /** Turns on/off torch (flash), if available.
+   * default: false
+   */
+  torchOn: boolean,
+
   /**
    * Callback fired when authorization has changed
    *
@@ -134,6 +139,7 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     minDistanceCamera: 0.05,
     maxDistanceCamera: 5,
     intersectDistance: 0.1,
+    torchOn: false,
     onCameraStatusChange: dummy,
     onARStatusChange: dummy,
     onMeasuringStatusChange: dummy,

@@ -21,6 +21,13 @@ import ARKit
     
     // MARK: Public methods
     
+    
+    @objc public var torchOn = false {
+        didSet {
+            toggleTorch(torchOn)
+        }
+    }
+    
     // Removes all nodes and lines
     // Must be called on UI thread
     func clear()
@@ -326,6 +333,7 @@ import ARKit
             sceneView.delegate = nil
             sceneView.session.delegate = nil
             sceneView.session.pause()
+            toggleTorch(false)
             
             arReady = false
             arStatus = "off"
@@ -387,6 +395,8 @@ import ARKit
             let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
             tapGestureRecognizer.cancelsTouchesInView = false
             self.sceneView.addGestureRecognizer(tapGestureRecognizer)
+            
+            toggleTorch(self.torchOn)
         }
     }
 
@@ -416,13 +426,20 @@ import ARKit
     }
     
     
-    // MARK: Session handling ARSessionDelegate
+    // MARK: Session handling delegates
     
     public func session(_ session: ARSession, didFailWithError error: Error) {
         arReady = false
         arStatus = "off"
         measuringStatus = "off"
         self.onMountError?(["message": error.localizedDescription])
+    }
+    
+    public func sessionInterruptionEnded(_ session: ARSession) {
+        // if interruption ended and we had flash, try to turn it on again
+        if torchOn {
+            toggleTorch(true)
+        }
     }
     
     public func sessionShouldAttemptRelocalization(_ session: ARSession) -> Bool {
@@ -825,6 +842,32 @@ import ARKit
             }
         }
         return nil
+    }
+    
+    func toggleTorch(_ on: Bool){
+        // delay torch and make sure it runs on the UI thread
+        DispatchQueue.main.asyncAfter(deadline: .now() + (on ? 0.5 : 0.1)) {
+            guard let device = AVCaptureDevice.default(for: AVMediaType.video)
+            else {return}
+
+            if device.hasTorch {
+                do {
+                    try device.lockForConfiguration()
+
+                    if on {
+                        device.torchMode = .on // set on
+                    } else {
+                        device.torchMode = .off // set off
+                    }
+
+                    device.unlockForConfiguration()
+                } catch {
+                    NSLog("Torch could not be used")
+                }
+            } else {
+                NSLog("Torch is not available")
+            }
+        }
     }
 }
 
