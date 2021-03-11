@@ -333,11 +333,16 @@ import ARKit
             sceneView.delegate = nil
             sceneView.session.delegate = nil
             sceneView.session.pause()
-            toggleTorch(false)
             
             arReady = false
             arStatus = "off"
             measuringStatus = "off"
+            
+            // only turn off torch if we were set to turn it on
+            // otherwise we would call this unnecessarily.
+            if(self.torchOn){
+                toggleTorch(false)
+            }
         }
         else{
             
@@ -396,7 +401,11 @@ import ARKit
             tapGestureRecognizer.cancelsTouchesInView = false
             self.sceneView.addGestureRecognizer(tapGestureRecognizer)
             
-            toggleTorch(self.torchOn)
+            // only turn on torch if we were set to turn it on
+            // otherwise we would call this unnecessarily.
+            if(self.torchOn){
+                toggleTorch(self.torchOn)
+            }
         }
     }
 
@@ -765,7 +774,8 @@ import ARKit
         
         let cameraPos = SCNVector3.positionFrom(matrix: cameraTransform)
         
-        guard let query = sceneView.raycastQuery(from: location, allowing: .estimatedPlane, alignment: .any) else{
+        // try highest presicion plane first
+        guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneGeometry, alignment: .any) else{
             
             // this should never happen
             return ("Detection failed.", nil)
@@ -773,16 +783,26 @@ import ARKit
         
         var hitTest = sceneView.session.raycast(query)
         
-        // if hit test count is 0, try with an infinite plane
+        // if hit test count is 0, try with an estimated and then an infinite plane
         // this matches more the native app, and prevents us from getting lots of error messages
         if hitTest.count == 0 {
-            guard let queryInfinite = sceneView.raycastQuery(from: location, allowing: .existingPlaneInfinite, alignment: .any) else{
+            guard let query = sceneView.raycastQuery(from: location, allowing: .estimatedPlane, alignment: .any) else{
                 
                 // this should never happen
                 return ("Detection failed.", nil)
             }
             
-            hitTest = sceneView.session.raycast(queryInfinite)
+            hitTest = sceneView.session.raycast(query)
+            
+            if hitTest.count == 0 {
+                guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneInfinite, alignment: .any) else{
+                    
+                    // this should never happen
+                    return ("Detection failed.", nil)
+                }
+                
+                hitTest = sceneView.session.raycast(query)
+            }
         }
         
             
