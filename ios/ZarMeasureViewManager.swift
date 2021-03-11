@@ -7,7 +7,7 @@ class ZarMeasureViewManager: RCTViewManager {
     
     // MARK: RN Setup and Constants
     private var _supportsAR = false
-    
+    private var _supportsMesh = false
     
     override static func requiresMainQueueSetup() -> Bool {
         return true
@@ -20,7 +20,13 @@ class ZarMeasureViewManager: RCTViewManager {
         } else {
             _supportsAR = false
         };
-        return ["AR_SUPPORTED": _supportsAR]
+        if #available(iOS 13, *) {
+            _supportsMesh = ZarMeasureView.SUPPORTS_MESH
+        }
+        return [
+            "AR_SUPPORTED": _supportsAR,
+            "MESH_SUPPORTED": _supportsMesh
+        ]
     }
     
     

@@ -150,8 +150,11 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
   // ------ Consts ----------------
 
   static Constants = {
-    /** true/false to indicate if AR is supported on the device */
-    AR_SUPPORTED: Consts.AR_SUPPORTED
+    /** true  if AR is supported on the device */
+    AR_SUPPORTED: Consts.AR_SUPPORTED,
+
+    /** true if the device also supports high detail Meshes */
+    MESH_SUPPORTED: Consts.MESH_SUPPORTED,
   }
 
 

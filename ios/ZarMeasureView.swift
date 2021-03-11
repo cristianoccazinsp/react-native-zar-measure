@@ -7,13 +7,20 @@ import ARKit
 @available(iOS 13, *)
 @objc public class ZarMeasureView: UIView, ARSCNViewDelegate, UIGestureRecognizerDelegate, ARSessionDelegate, ARCoachingOverlayViewDelegate {
     
+    public static var SUPPORTS_MESH : Bool {
+        if #available(iOS 13.4, *) {
+            return ARWorldTrackingConfiguration.supportsSceneReconstruction(.meshWithClassification)
+        }
+        return false
+    }
 
     // MARK: Public properties
     @objc public var units: String = "m"
     @objc public var minDistanceCamera: CGFloat = 0.05
     @objc public var maxDistanceCamera: CGFloat = 5
     @objc public var intersectDistance: CGFloat = 0.1
-    @objc public var debugMode = false
+    @objc public var debugPlanes = false
+    @objc public var debugMeshes = false
     @objc public var onARStatusChange: RCTDirectEventBlock? = nil
     @objc public var onMeasuringStatusChange: RCTDirectEventBlock? = nil
     @objc public var onMountError: RCTDirectEventBlock? = nil
@@ -215,9 +222,20 @@ import ARKit
         }
         
         takingPicture = true
+        
         // temporary remove target nodes from view
+        // and any debug node
+        
         targetNode?.isHidden = true
         lineNode?.isHidden = true
+        
+        // we know that all debug nodes are added to the view
+        // root node, and not our own root node
+        for n in sceneView.scene.rootNode.childNodes {
+            if n != rootNode {
+                n.isHidden = true
+            }
+        }
         
         let image = sceneView.snapshot()
         var points : [MeasurementLine2D] = []
@@ -230,9 +248,15 @@ import ARKit
             idx += 1
         }
         
-        // re add it back
+        // re add nodes back
         targetNode?.isHidden = false
         lineNode?.isHidden = false
+        
+        for n in sceneView.scene.rootNode.childNodes {
+            if n != rootNode {
+                n.isHidden = false
+            }
+        }
         
         takingPicture = false
         
@@ -356,11 +380,9 @@ import ARKit
             // this should technically use Lidar sensors and greatly
             // improve accuracy
             if #available(iOS 13.4, *) {
-                if(ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh)){
-                    configuration.sceneReconstruction = .mesh
+                if(ZarMeasureView.SUPPORTS_MESH){
+                    configuration.sceneReconstruction = .meshWithClassification
                 }
-            } else {
-                // Fallback on earlier versions
             }
         
             
@@ -456,39 +478,54 @@ import ARKit
     }
     
     public func renderer(_ renderer: SCNSceneRenderer, didAdd node: SCNNode, for anchor: ARAnchor) {
-        if(!debugMode) { return }
+
+        if(debugPlanes){
+            // Place content only for anchors found by plane detection.
+            if let planeAnchor = anchor as? ARPlaneAnchor{
+                // Create a node to visualize the plane's bounding rectangle.
+                // Create a custom object to visualize the plane geometry and extent.
+                let plane = DebugPlane(anchor: planeAnchor)
+                plane.isHidden = takingPicture
+                
+                // Add the visualization to the ARKit-managed node so that it tracks
+                // changes in the plane anchor as plane estimation continues.
+                node.addChildNode(plane)
+            }
+        }
         
-        // Place content only for anchors found by plane detection.
-        guard let planeAnchor = anchor as? ARPlaneAnchor else { return }
-        
-        // Create a node to visualize the plane's bounding rectangle.
-        // Create a custom object to visualize the plane geometry and extent.
-        let color = planeAnchor.alignment == .vertical ? self.nodeColor : self.nodeColorClose
-        let plane = DebugPlane(anchor: planeAnchor, in: sceneView, withColor: color)
-        
-        // Add the visualization to the ARKit-managed node so that it tracks
-        // changes in the plane anchor as plane estimation continues.
-        node.addChildNode(plane)
+        if(debugMeshes){
+            if #available(iOS 13.4, *){
+                if let meshAnchor = anchor as? ARMeshAnchor {
+                    
+                    let meshNode = DebugMesh(anchor: meshAnchor)
+                    meshNode.isHidden = takingPicture
+                    
+                    node.addChildNode(meshNode)
+                }
+            }
+        }
     }
     
     public func renderer(_ renderer: SCNSceneRenderer, didUpdate node: SCNNode, for anchor: ARAnchor) {
-        if(!debugMode) { return }
+        
         
         // Update only anchors and nodes set up by `renderer(_:didAdd:for:)`.
-        guard let planeAnchor = anchor as? ARPlaneAnchor,
-            let plane = node.childNodes.first as? DebugPlane
-            else { return }
-        
-        // Update ARSCNPlaneGeometry to the anchor's new estimated shape.
-        if let planeGeometry = plane.meshNode.geometry as? ARSCNPlaneGeometry {
-            planeGeometry.update(from: planeAnchor.geometry)
+        if(debugPlanes){
+            if let planeAnchor = anchor as? ARPlaneAnchor,
+               let plane = node.childNodes.first as? DebugPlane {
+                
+                plane.updatePlane(planeAnchor)
+            }
         }
-
-        // Update extent visualization to the anchor's new bounding rectangle.
-        if let extentGeometry = plane.extentNode.geometry as? SCNPlane {
-            extentGeometry.width = CGFloat(planeAnchor.extent.x)
-            extentGeometry.height = CGFloat(planeAnchor.extent.z)
-            plane.extentNode.simdPosition = planeAnchor.center
+        
+        if(debugMeshes){
+            if #available(iOS 13.4, *){
+                if let meshAnchor = anchor as? ARMeshAnchor,
+                   let mesh = node.childNodes.first as? DebugMesh {
+                    
+                    mesh.updateMesh(meshAnchor)
+                }
+            }
         }
     }
     
@@ -888,393 +925,6 @@ import ARKit
                 NSLog("Torch is not available")
             }
         }
-    }
-}
-
-
-extension SCNNode {
-    
-    // Gets distance between two SCNNodes in meters
-    func distance(to destination: SCNNode) -> CGFloat {
-        return position.distance(to: destination.position)
-    }
-}
-
-
-extension SCNVector3 {
-    func distance(to destination: SCNVector3) -> CGFloat {
-        let dx = destination.x - x
-        let dy = destination.y - y
-        let dz = destination.z - z
-        return CGFloat(sqrt(dx*dx + dy*dy + dz*dz))
-    }
-    
-    static func positionFrom(matrix: matrix_float4x4) -> SCNVector3 {
-        let column = matrix.columns.3
-        return SCNVector3(column.x, column.y, column.z)
-    }
-}
-
-
-@available(iOS 13.0, *)
-extension ARRaycastResult {
-    func distanceFromCamera(_ from: ARSCNView) -> CGFloat? {
-        
-        guard let cameraTransform = from.session.currentFrame?.camera.transform else {
-            return nil
-        }
-        
-        return SCNVector3.positionFrom(matrix: cameraTransform).distance(to: SCNVector3.positionFrom(matrix: worldTransform))
-    }
-    
-    func distanceFromCamera(_ from : SCNVector3) -> CGFloat {
-        return from.distance(to: SCNVector3.positionFrom(matrix: worldTransform))
-    }
-}
-
-
-@available(iOS 11.0, *)
-class LineNode: SCNNode {
-    private let box = SCNBox()
-    private let width = CGFloat(0.002)
-    
-    init(from vectorA: SCNVector3, to vectorB: SCNVector3, lineColor color: UIColor) {
-        super.init()
-        
-        //let height = self.distance(from: vectorA, to: vectorB)
-        let height = vectorA.distance(to: vectorB)
-        
-        self.position = vectorA
-        let nodeVector2 = SCNNode()
-        nodeVector2.position = vectorB
-        
-        let nodeZAlign = SCNNode()
-        nodeZAlign.eulerAngles.x = Float.pi/2
-        
-        // initialize box
-        box.width = width
-        box.height = height
-        box.length = width
-        box.chamferRadius = 0
-        
-        let material = SCNMaterial()
-        material.diffuse.contents = color
-        material.readsFromDepthBuffer = false
-        material.writesToDepthBuffer = false
-        box.materials = [material]
-        
-        
-        let nodeLine = SCNNode(geometry: box)
-        nodeLine.renderingOrder = 0
-        nodeLine.position.y = Float(-height/2) + 0.001
-        nodeZAlign.addChildNode(nodeLine)
-        
-        self.addChildNode(nodeZAlign)
-        
-        self.constraints = [SCNLookAtConstraint(target: nodeVector2)]
-    }
-    
-    required init?(coder aDecoder: NSCoder) {
-        super.init(coder: aDecoder)
-    }
-    
-    func setScale(sceneView view : ARSCNView, in relationTo:SCNNode){
-        guard let pov = view.pointOfView else {
-            return
-        }
-        let distance = min(pov.distance(to: relationTo), 5)
-        let scale = CGFloat(0.5 + distance * 0.8)
-        
-        box.width = CGFloat(width * scale)
-        box.length = CGFloat(width * scale)
-    }
-}
-
-
-@available(iOS 11.0, *)
-class SphereNode: SCNNode {
-    
-    init(at position: SCNVector3, color nodeColor: UIColor) {
-        super.init()
-        
-        // material
-        let material = SCNMaterial()
-        material.diffuse.contents = nodeColor
-        material.lightingModel = .constant
-        material.readsFromDepthBuffer = false
-        material.writesToDepthBuffer = false
-        
-        // Creates an SCNSphere with a radius
-        let sphere = SCNSphere(radius: 0.008)
-        sphere.firstMaterial = material
-        
-        // Positions the node based on the passed in position
-        self.geometry = sphere
-        self.position = position
-        self.renderingOrder = 0
-    }
-    
-    func setScale(sceneView view : ARSCNView){
-        guard let pov = view.pointOfView else {
-            return
-        }
-        let distance = min(pov.distance(to: self), 5)
-        let scale = Float(0.5 + distance * 0.5)
-        self.scale = SCNVector3Make(scale, scale, scale)
-    }
-    
-    required init?(coder aDecoder: NSCoder) {
-        super.init(coder: aDecoder)
-    }
-}
-
-
-@available(iOS 13, *)
-class TargetNode: SCNNode {
-        
-    init(at position: SCNVector3, color nodeColor: UIColor) {
-        super.init()
-        
-        // add circle/donut
-        let donutMaterial = SCNMaterial()
-        donutMaterial.diffuse.contents = nodeColor.withAlphaComponent(0.9)
-        donutMaterial.lightingModel = .constant
-        
-        let donut = SCNTube(innerRadius: 0.08 - 0.005, outerRadius: 0.08, height: 0.001)
-        donut.firstMaterial = donutMaterial
-        
-        let donutNode = SCNNode(geometry: donut)
-        donutNode.name = "donut"
-        self.addChildNode(donutNode)
-        
-        
-        // Add sphere
-        let sphereMaterial = SCNMaterial()
-        sphereMaterial.diffuse.contents = nodeColor
-        sphereMaterial.lightingModel = .constant
-        
-        sphereMaterial.readsFromDepthBuffer = false
-        sphereMaterial.writesToDepthBuffer = false
-        
-        let sphere = SCNSphere(radius: 0.008)
-        sphere.firstMaterial = sphereMaterial
-        
-        let sphereNode = SCNNode(geometry: sphere)
-        sphereNode.name = "sphere"
-        sphereNode.renderingOrder = 15
-        self.addChildNode(sphereNode)
-        
-        // Positions the node based on the passed in position
-        self.position = position
-        self.renderingOrder = 15
-    }
-    
-    // update the node position so we don't need to re-create it every time
-    // and optionally its color
-    func updatePosition(to position: SCNVector3, color nodeColor: UIColor?){
-        self.position = position
-        
-        if let color = nodeColor {
-            self.childNode(withName: "donut", recursively: false)?.geometry?.firstMaterial?.diffuse.contents = color.withAlphaComponent(0.9)
-            
-            self.childNode(withName: "sphere", recursively: false)?.geometry?.firstMaterial?.diffuse.contents = color
-        }
-    }
-    
-    func setSphereScale(sceneView view : ARSCNView){
-        guard let pov = view.pointOfView else {
-            return
-        }
-        guard let sphere = self.childNode(withName: "sphere", recursively: false) else {
-            return
-        }
-
-        let distance = min(pov.distance(to: self), 5)
-        let scale = Float(0.5 + distance * 0.5)
-        sphere.scale = SCNVector3Make(scale, scale, scale)
-    }
-    
-    func setDonutScale(sceneView view : ARSCNView, hitResult hit: HitResult, animation duration: Double){
-        
-        guard let donut = self.childNode(withName: "donut", recursively: false) else {return}
-        
-        DispatchQueue.main.async {
-            // Animate rotation update so it looks nicer
-            SCNTransaction.begin()
-            SCNTransaction.animationDuration = duration
-            
-            if let _anchor = hit.anchor {
-                guard let anchoredNode = view.node(for: _anchor) else { return }
-                
-                // rotate our donut based on detected anchor
-                donut.eulerAngles.x = anchoredNode.eulerAngles.x
-                donut.eulerAngles.y = anchoredNode.eulerAngles.y
-                donut.eulerAngles.z = anchoredNode.eulerAngles.z
-            }
-            else{
-                
-                let dummy = SCNNode()
-                dummy.transform = SCNMatrix4(hit.transform)
-                donut.eulerAngles.x = dummy.eulerAngles.x
-                donut.eulerAngles.y = dummy.eulerAngles.y
-                donut.eulerAngles.z = dummy.eulerAngles.z
-            }
-            
-            SCNTransaction.commit()
-        }
-    }
-    
-    required init?(coder aDecoder: NSCoder) {
-        super.init(coder: aDecoder)
-    }
-}
-
-
-@available(iOS 13, *)
-class TextNode: SCNNode {
-    
-    private let extrusionDepth: CGFloat = 0.1
-    public var id : String?
-    public var label = ""
-    
-    init(between vectorA: SCNVector3, and vectorB: SCNVector3, textLabel label: String, textColor color: UIColor) {
-        super.init()
-        
-        self.label = label
-        
-        let constraint = SCNBillboardConstraint()
-        
-        
-        let text = SCNText(string: label, extrusionDepth: extrusionDepth)
-        text.font = UIFont.systemFont(ofSize: 5, weight: UIFont.Weight.heavy)
-        text.firstMaterial?.diffuse.contents = color
-        text.firstMaterial?.isDoubleSided = true
-        
-        // allows it to stay on top of lines and other stuff
-        text.firstMaterial?.readsFromDepthBuffer = false
-        text.firstMaterial?.writesToDepthBuffer = false
-        
-        let x = (vectorA.x + vectorB.x) / 2
-        let y = (vectorA.y + vectorB.y) / 2
-        let z = (vectorA.z + vectorB.z) / 2
-        
-        let max = text.boundingBox.max
-        let min = text.boundingBox.min
-        let tx = (max.x + min.x) / 2.0
-        let ty = (max.y + min.y) / 2.0
-        let tz = Float(extrusionDepth) / 2.0
-        
-        // main node positioning
-        self.pivot = SCNMatrix4MakeTranslation(tx, ty, tz)
-        self.geometry = text
-        self.position = SCNVector3(x, y, z)
-        self.constraints = [constraint]
-        self.renderingOrder = 10
-        
-        // Add background
-        let bound = SCNVector3Make(max.x - min.x,
-                                   max.y - min.y,
-                                   max.z - min.z);
-
-        let plane = SCNPlane(width: CGFloat(bound.x + 4),
-                            height: CGFloat(bound.y + 4))
-        
-        plane.cornerRadius = 4
-        plane.firstMaterial?.diffuse.contents = UIColor.white.withAlphaComponent(0.9)
-        plane.firstMaterial?.readsFromDepthBuffer = false
-        plane.firstMaterial?.writesToDepthBuffer = false
-
-        let planeNode = SCNNode(geometry: plane)
-        planeNode.position = SCNVector3(
-            CGFloat(min.x) + CGFloat(bound.x) / 2,
-            CGFloat(min.y) + CGFloat(bound.y) / 2,
-            CGFloat(min.z) - extrusionDepth
-        )
-        
-        planeNode.name = "textnode-plane"
-        
-        self.addChildNode(planeNode)
-        self.name = "textnode"
-    }
-    
-    func setScale(sceneView view : ARSCNView){
-        guard let pov = view.pointOfView else {
-            return
-        }
-        let distance = min(pov.distance(to: self), 3)
-        let scale = Float(0.001 + 0.007 * distance)
-        self.scale = SCNVector3Make(scale, scale, scale)
-    }
-    
-    required init?(coder aDecoder: NSCoder) {
-        super.init(coder: aDecoder)
-        self.label = ""
-    }
-}
-
-
-@available(iOS 13.0, *)
-class DebugPlane: SCNNode {
-    
-    let meshNode: SCNNode
-    let extentNode: SCNNode
-    let color: UIColor
-    var classificationNode: SCNNode?
-    
-    /// - Tag: VisualizePlane
-    init(anchor: ARPlaneAnchor, in sceneView: ARSCNView, withColor color: UIColor) {
-        
-        // Create a mesh to visualize the estimated shape of the plane.
-        guard let meshGeometry = ARSCNPlaneGeometry(device: sceneView.device!)
-            else { fatalError("Can't create plane geometry") }
-        
-        meshGeometry.update(from: anchor.geometry)
-        meshNode = SCNNode(geometry: meshGeometry)
-        
-        // Create a node to visualize the plane's bounding rectangle.
-        let extentPlane = SCNPlane(width: CGFloat(anchor.extent.x), height: CGFloat(anchor.extent.z))
-        extentNode = SCNNode(geometry: extentPlane)
-        extentNode.simdPosition = anchor.center
-        
-        extentPlane.firstMaterial?.readsFromDepthBuffer = false
-        extentPlane.firstMaterial?.writesToDepthBuffer = false
-        meshGeometry.firstMaterial?.readsFromDepthBuffer = false
-        meshGeometry.firstMaterial?.writesToDepthBuffer = false
-        extentNode.renderingOrder = -2
-        meshNode.renderingOrder = -1
-        
-        // `SCNPlane` is vertically oriented in its local coordinate space, so
-        // rotate it to match the orientation of `ARPlaneAnchor`.
-        extentNode.eulerAngles.x = -.pi / 2
-        self.color = color
-
-        super.init()
-
-        self.setupMeshVisualStyle()
-        self.setupExtentVisualStyle()
-
-        // Add the plane extent and plane geometry as child nodes so they appear in the scene.
-        addChildNode(meshNode)
-        addChildNode(extentNode)
-    }
-    
-    required init?(coder aDecoder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-    
-    private func setupMeshVisualStyle() {
-        // Make the plane visualization semitransparent to clearly show real-world placement.
-        //meshNode.opacity = 0.25
-        
-        // Use color and blend mode to make planes stand out.
-        meshNode.geometry?.firstMaterial?.diffuse.contents = color.withAlphaComponent(0.5)
-        
-    }
-    
-    private func setupExtentVisualStyle() {
-        // Make the extent visualization semitransparent to clearly show real-world placement.
-        //extentNode.opacity = 0.6
-        extentNode.geometry?.firstMaterial?.diffuse.contents = color.withAlphaComponent(0.5)
     }
 }
 
