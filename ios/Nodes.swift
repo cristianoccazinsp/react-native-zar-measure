@@ -336,7 +336,7 @@ class DebugMesh: SCNNode {
         
         // assign a material suitable for default visualization
         defaultMaterial.fillMode = .lines
-        defaultMaterial.diffuse.contents = classification.color.withAlphaComponent(0.8)
+        defaultMaterial.diffuse.contents = classification.color
 //        defaultMaterial.readsFromDepthBuffer = false
 //        defaultMaterial.writesToDepthBuffer = false
         geometry.materials = [defaultMaterial]
@@ -357,7 +357,7 @@ class DebugMesh: SCNNode {
     public func updateMesh(_ anchor: ARMeshAnchor){
         classification = anchor.geometry.classificationOf(faceWithIndex: 0)
         let newGeometry = SCNGeometry.fromAnchor(meshAnchor: anchor)
-        defaultMaterial.diffuse.contents = classification.color.withAlphaComponent(0.8)
+        defaultMaterial.diffuse.contents = classification.color
         newGeometry.materials = [defaultMaterial]
         meshNode.geometry = newGeometry
     }
