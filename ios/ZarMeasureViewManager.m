@@ -34,4 +34,8 @@ RCT_EXTERN_METHOD(addPoint: (nonnull NSNumber *)node setCurrent:(BOOL)current re
 RCT_EXTERN_METHOD(getMeasurements: (nonnull NSNumber *)node resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(takePicture: (nonnull NSNumber *)node imagePath:(NSString*) path resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(saveToFile: (nonnull NSNumber *)node filePath:(NSString*) path resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(showPreview: (NSString*) path resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
 @end

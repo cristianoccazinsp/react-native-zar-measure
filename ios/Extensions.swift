@@ -75,12 +75,12 @@ extension ARMeshClassification {
     var color: UIColor {
         switch self {
             case .ceiling: return .blue
-            case .door: return .yellow
+            case .door: return .white
             case .floor: return .blue
-            case .seat: return .yellow
-            case .table: return .blue
+            case .seat: return .white
+            case .table: return .white
             case .wall: return .yellow
-            case .window: return .yellow
+            case .window: return .white
             case .none: return .white
             @unknown default: return .white
         }
@@ -104,8 +104,8 @@ extension SCNGeometry {
         // use the MTL buffer that ARKit gives us
         let vertexSource = SCNGeometrySource(buffer: vertices.buffer, vertexFormat: vertices.format, semantic: .vertex, vertexCount: vertices.count, dataOffset: vertices.offset, dataStride: vertices.stride)
         
-        // but we need to create our own copy of the faces..
-        let faceData = Data(bytesNoCopy: faces.buffer.contents(), count: faces.buffer.length, deallocator: .none)
+        // Copy bytes as we may use them later
+        let faceData = Data(bytes: faces.buffer.contents(), count: faces.buffer.length)
         
         // create the geometry element
         let geometryElement = SCNGeometryElement(data: faceData, primitiveType: .triangles, primitiveCount: faces.count, bytesPerIndex: faces.bytesPerIndex)

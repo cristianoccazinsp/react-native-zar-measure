@@ -217,7 +217,7 @@ import ARKit
     // Must be called on UI thread
     func takePicture(_ path : String, completion: @escaping (String?, [MeasurementLine2D]) -> Void)
     {
-        if(!arReady){
+        if(!arReady || takingPicture){
             completion("Not ready", [])
         }
         
@@ -277,6 +277,54 @@ import ARKit
             }
         }
     }
+    
+    // Saves a snapshot of the current world data as usdz file
+    // resolves with nil if no error, or with an error message otherwise.
+    // Must be called on UI thread
+    func saveToFile(_ path : String, completion: @escaping (String?) -> Void)
+    {
+        if(!arReady || takingPicture){
+            completion("Not ready")
+        }
+        
+        // use same flag for now
+        takingPicture = true
+        
+        DispatchQueue.global(qos: .background).async {
+            
+            // temporary remove target nodes
+            
+            self.targetNode?.removeFromParentNode()
+            self.lineNode?.removeFromParentNode()
+            
+            let fileUrl = URL(fileURLWithPath: path)
+            
+            // it's unclear whether this method returns right away
+            // but it seems like it fires both callbacks and onyl returns once completed
+            let res = self.sceneView.scene.write(to: fileUrl, options: nil, delegate: nil){ (progress, error, obj) in
+                
+                //NSLog("Progress: \(progress) - \(String(describing: error)) \(obj)")
+            }
+            
+            // re add nodes back
+            if let t = self.targetNode {
+                self.rootNode.addChildNode(t)
+            }
+            if let t = self.lineNode {
+                self.rootNode.addChildNode(t)
+            }
+            
+            if(!res){
+                completion("Export failed: scene writing returned an error")
+            }
+            else{
+                completion(nil)
+            }
+            
+            self.takingPicture = false
+        }
+    }
+    
 
     // MARK: Private properties
     private var sceneView = ARSCNView()
@@ -485,7 +533,6 @@ import ARKit
                 // Create a node to visualize the plane's bounding rectangle.
                 // Create a custom object to visualize the plane geometry and extent.
                 let plane = DebugPlane(anchor: planeAnchor)
-                plane.isHidden = takingPicture
                 
                 // Add the visualization to the ARKit-managed node so that it tracks
                 // changes in the plane anchor as plane estimation continues.
@@ -498,7 +545,6 @@ import ARKit
                 if let meshAnchor = anchor as? ARMeshAnchor {
                     
                     let meshNode = DebugMesh(anchor: meshAnchor)
-                    meshNode.isHidden = takingPicture
                     
                     node.addChildNode(meshNode)
                 }

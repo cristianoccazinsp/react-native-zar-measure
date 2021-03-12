@@ -1,13 +1,17 @@
 import Foundation
 import ARKit
+import QuickLook
 
 
 @objc(ZarMeasureViewManager)
-class ZarMeasureViewManager: RCTViewManager {
+class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPreviewControllerDelegate {
     
     // MARK: RN Setup and Constants
     private var _supportsAR = false
     private var _supportsMesh = false
+    private var _previewUrl : URL? = nil
+    private var _previewResolve : RCTPromiseResolveBlock? = nil
+    
     
     override static func requiresMainQueueSetup() -> Bool {
         return true
@@ -226,4 +230,102 @@ class ZarMeasureViewManager: RCTViewManager {
         }
     }
     
+    
+    @objc
+    func saveToFile(_ node:NSNumber, filePath path: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    {
+        if #available(iOS 13, *) {
+            DispatchQueue.main.async { [weak self] in
+                
+                guard let view = self?.bridge.uiManager.view(forReactTag: node) as? ZarMeasureView else {
+                    resolve(["error": "Invalid View Tag"])
+                    return;
+                }
+                
+                view.saveToFile(path){ (err) in
+                    if(err == nil){
+                        resolve(["error": nil])
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    }
+                    else{
+                        resolve(["error": err])
+                    }
+                    
+                }
+            }
+        }
+        else{
+            resolve(["error": "Not supported"])
+        }
+    }
+    
+    
+    @objc
+    func showPreview(_ path: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    {
+        if #available(iOS 13, *) {
+            
+            if !FileManager.default.fileExists(atPath: path) {
+                reject("file_invalid", "File does not exist.", nil);
+                return;
+            }
+            
+            let url = URL(fileURLWithPath: path)
+            
+            if !QLPreviewController.canPreview(url as QLPreviewItem) {
+                reject("file_not_supported", "File not supported", nil);
+                return;
+            }
+            
+            _previewUrl = url
+            _previewResolve = resolve
+            
+            DispatchQueue.main.async { [weak self] in
+                if let self = self {
+                    let previewController = QLPreviewController()
+                    previewController.dataSource = self
+                    previewController.delegate = self
+                    
+                    RCTPresentedViewController()?.present(previewController, animated: true, completion: {
+                    })
+                }
+            }
+        }
+        else{
+            reject("not_supported", "Not supported.]", nil);
+        }
+    }
+    
+    // MARK: QuickLook delegate
+    func numberOfPreviewItems(in controller: QLPreviewController) -> Int { return 1 }
+
+    // MARK: QuickLook delegate
+    func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem {
+        if let url = _previewUrl {
+            if #available(iOS 13.0, *) {
+                let res = CustomPreviewItem(fileAt: url)
+                
+                return res
+            } else {
+                return url as QLPreviewItem
+            }
+        }
+        else {
+            fatalError("Failed to open preview: file was nil.")
+        }
+    }
+    
+    func previewControllerDidDismiss(_ controller: QLPreviewController) {
+        _previewResolve?(nil)
+        _previewResolve = nil
+    }
+}
+
+
+@available(iOS 13.0, *)
+class CustomPreviewItem : ARQuickLookPreviewItem {
+    
+    override var previewItemTitle: String? {
+        return "Preview"
+    }
 }

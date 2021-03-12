@@ -260,6 +260,33 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     return {error: "View not available"};
   }
 
+  /**
+   * Saves an USDZ file (.usdz) to the given path, or resolvves with {error: string}
+   * path must include full path, name, and usdz extension.
+   *
+   */
+  async saveToFile(path) : {error: string} {
+    const handle = findNodeHandle(this._ref.current);
+    if(handle){
+      return await ZarMeasureModule.saveToFile(handle, path);
+    }
+    return {error: "View not available"};
+  }
+
+  /**
+   * Invokes Apple's QLPreviewController to preview a given USDZ file
+   *
+   * Resolves only after the preview modal closes, otherwise, rejects if it fails to open.
+   *
+   * Only one preview can be opened at a time.
+   *
+   * NOTE: Work in progress, it always opens through the camera first, which is annoying and
+   * oposed to Apple's docs from ARQuickLookPreviewItem. Need a real viewer.
+   * */
+  static async showPreview(path){
+    return await ZarMeasureModule.showPreview(path);
+  }
+
   // ------------------------------------------------
 
 

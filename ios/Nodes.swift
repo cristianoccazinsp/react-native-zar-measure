@@ -5,47 +5,38 @@ import ARKit
 
 @available(iOS 11.0, *)
 class LineNode: SCNNode {
-    private let box = SCNBox()
+    private let cylinder : SCNCylinder
     private let width = CGFloat(0.002)
     
     init(from vectorA: SCNVector3, to vectorB: SCNVector3, lineColor color: UIColor) {
+        
+        let distance = vectorA.distance(to: vectorB)
+        cylinder = SCNCylinder(radius: width, height: distance)
+        cylinder.radialSegmentCount = 3
+        cylinder.firstMaterial?.diffuse.contents = color
+        cylinder.firstMaterial?.readsFromDepthBuffer = false
+        cylinder.firstMaterial?.writesToDepthBuffer = false
+
+        let lineNode = SCNNode(geometry: cylinder)
+
+        lineNode.position = SCNVector3(x: (vectorA.x + vectorB.x) / 2,
+                                       y: (vectorA.y + vectorB.y) / 2,
+                                       z: (vectorA.z + vectorB.z) / 2)
+
+        lineNode.eulerAngles = SCNVector3(
+            Float.pi / 2,
+            acos((vectorB.z-vectorA.z)/Float(distance)),
+            atan2((vectorB.y-vectorA.y),(vectorB.x-vectorA.x))
+        )
+        lineNode.renderingOrder = 0
+        
         super.init()
-        
-        //let height = self.distance(from: vectorA, to: vectorB)
-        let height = vectorA.distance(to: vectorB)
-        
-        self.position = vectorA
-        let nodeVector2 = SCNNode()
-        nodeVector2.position = vectorB
-        
-        let nodeZAlign = SCNNode()
-        nodeZAlign.eulerAngles.x = Float.pi/2
-        
-        // initialize box
-        box.width = width
-        box.height = height
-        box.length = width
-        box.chamferRadius = 0
-        
-        let material = SCNMaterial()
-        material.diffuse.contents = color
-        material.readsFromDepthBuffer = false
-        material.writesToDepthBuffer = false
-        box.materials = [material]
-        
-        
-        let nodeLine = SCNNode(geometry: box)
-        nodeLine.renderingOrder = 0
-        nodeLine.position.y = Float(-height/2) + 0.001
-        nodeZAlign.addChildNode(nodeLine)
-        
-        self.addChildNode(nodeZAlign)
-        
-        self.constraints = [SCNLookAtConstraint(target: nodeVector2)]
+        self.addChildNode(lineNode)
+
     }
     
     required init?(coder aDecoder: NSCoder) {
-        super.init(coder: aDecoder)
+        fatalError("init(coder:) has not been implemented")
     }
     
     func setScale(sceneView view : ARSCNView, in relationTo:SCNNode){
@@ -54,9 +45,7 @@ class LineNode: SCNNode {
         }
         let distance = min(pov.distance(to: relationTo), 5)
         let scale = CGFloat(0.5 + distance * 0.8)
-        
-        box.width = CGFloat(width * scale)
-        box.length = CGFloat(width * scale)
+        cylinder.radius = width * scale
     }
 }
 
@@ -94,7 +83,7 @@ class SphereNode: SCNNode {
     }
     
     required init?(coder aDecoder: NSCoder) {
-        super.init(coder: aDecoder)
+        fatalError("init(coder:) has not been implemented")
     }
 }
 
@@ -195,7 +184,7 @@ class TargetNode: SCNNode {
     }
     
     required init?(coder aDecoder: NSCoder) {
-        super.init(coder: aDecoder)
+        fatalError("init(coder:) has not been implemented")
     }
 }
 
@@ -277,8 +266,7 @@ class TextNode: SCNNode {
     }
     
     required init?(coder aDecoder: NSCoder) {
-        super.init(coder: aDecoder)
-        self.label = ""
+        fatalError("init(coder:) has not been implemented")
     }
 }
 
@@ -349,16 +337,13 @@ class DebugMesh: SCNNode {
         let defaultMaterial = SCNMaterial()
         defaultMaterial.fillMode = .lines
         defaultMaterial.diffuse.contents = classification.color.withAlphaComponent(0.8)
-        defaultMaterial.readsFromDepthBuffer = false
-        defaultMaterial.writesToDepthBuffer = false
         geometry.materials = [defaultMaterial]
         
         meshNode = SCNNode()
         meshNode.geometry = geometry
-        meshNode.renderingOrder = -4
         
         super.init()
-        self.renderingOrder = -4
+        //self.renderingOrder = -4
         
         addChildNode(meshNode)
     }
