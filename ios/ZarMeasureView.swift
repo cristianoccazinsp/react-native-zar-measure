@@ -30,19 +30,18 @@ import ARKit
     
     
     @objc public var torchOn = false {
-        didSet {
-            toggleTorch(torchOn)
+        willSet {
+            if torchOn != newValue {
+                toggleTorch(newValue)
+            }
         }
     }
     
     @objc public var paused = false {
-        didSet {
-            DispatchQueue.main.async {
-                if(self.paused){
-                    self.toggleSession(false)
-                }
-                else{
-                    self.toggleSession(true)
+        willSet {
+            if paused != newValue {
+                DispatchQueue.main.async {
+                    self.toggleSession(!self.paused)
                 }
             }
         }
@@ -450,10 +449,16 @@ import ARKit
         arReady = false
         arStatus = "off"
         measuringStatus = "off"
+        isRunning = false
         self.onMountError?(["message": error.localizedDescription])
     }
     
     public func sessionWasInterrupted(_ session: ARSession) {
+        // do some soft cleanup - restart
+        arReady = false
+        arStatus = "off"
+        measuringStatus = "off"
+        lastHitResult = (nil, nil)
         isRunning = false
     }
     
@@ -466,6 +471,7 @@ import ARKit
     }
     
     public func sessionShouldAttemptRelocalization(_ session: ARSession) -> Bool {
+        startCoach()
         return true
     }
     
@@ -814,13 +820,7 @@ import ARKit
             isRunning = true
             
             // run this afterwards, for some reason the session takes time to start
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
-                guard let self = self else {return}
-                
-                if self.sceneView.delegate != nil && !self.coachingView.isActive && !self.arReady {
-                    self.coachingView.setActive(true, animated: true)
-                }
-            }
+            startCoach()
             
             // add tap gestures as well
             let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
@@ -855,6 +855,18 @@ import ARKit
             }
             
             isRunning = false
+        }
+    }
+    
+    
+    // start coach only if not already running
+    private func startCoach(){
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            guard let self = self else {return}
+            
+            if self.sceneView.delegate != nil && !self.coachingView.isActive && !self.arReady {
+                self.coachingView.setActive(true, animated: true)
+            }
         }
     }
     
