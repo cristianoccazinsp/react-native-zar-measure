@@ -108,10 +108,25 @@ extension SCNGeometry {
         let faceData = Data(bytes: faces.buffer.contents(), count: faces.buffer.length)
         
         // create the geometry element
-        let geometryElement = SCNGeometryElement(data: faceData, primitiveType: .triangles, primitiveCount: faces.count, bytesPerIndex: faces.bytesPerIndex)
+        let geometryElement = SCNGeometryElement(data: faceData, primitiveType: .of(faces.primitiveType), primitiveCount: faces.count, bytesPerIndex: faces.bytesPerIndex)
         let geometry = SCNGeometry(sources: [vertexSource], elements: [geometryElement])
         
         return geometry;
+    }
+}
+
+
+@available(iOS 13.4, *)
+extension SCNGeometryPrimitiveType {
+    static  func  of(_ type: ARGeometryPrimitiveType) -> SCNGeometryPrimitiveType {
+       switch type {
+       case .line:
+            return .line
+       case .triangle:
+            return .triangles
+       @unknown default:
+            return .line
+       }
     }
 }
 

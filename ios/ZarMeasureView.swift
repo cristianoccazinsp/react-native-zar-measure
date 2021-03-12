@@ -587,8 +587,8 @@ import ARKit
             }
         }
     }
-    
-    // renderer callback method
+       
+    // renderer callback method to fire hit tests and scale items
     public func renderer(_ renderer: SCNSceneRenderer, updateAtTime time: TimeInterval) {
         
         if(takingPicture){
