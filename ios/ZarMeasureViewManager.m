@@ -13,12 +13,14 @@ RCT_EXPORT_VIEW_PROPERTY(intersectDistance, double)
 RCT_EXPORT_VIEW_PROPERTY(torchOn, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(paused, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(showPlanes, BOOL)
+RCT_EXPORT_VIEW_PROPERTY(showGeometry, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(showMeshes, BOOL)
 
 RCT_EXPORT_VIEW_PROPERTY(onARStatusChange, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onMeasuringStatusChange, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onMountError, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onTextTap, RCTDirectEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onPlaneTap, RCTDirectEventBlock)
 
 RCT_EXTERN_METHOD(clear: (nonnull NSNumber *)node resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
 
@@ -33,6 +35,8 @@ RCT_EXTERN_METHOD(editMeasurement: (nonnull NSNumber *)node nodeId:(nonnull NSSt
 RCT_EXTERN_METHOD(addPoint: (nonnull NSNumber *)node setCurrent:(BOOL)current resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(getMeasurements: (nonnull NSNumber *)node resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(getPlanes: (nonnull NSNumber *)node minArea:(nonnull NSNumber *)area resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(takePicture: (nonnull NSNumber *)node imagePath:(NSString*) path resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
 

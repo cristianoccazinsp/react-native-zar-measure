@@ -52,6 +52,20 @@ extension ARPlaneAnchor {
             @unknown default: return .blue
         }
     }
+    
+    func toDict() -> JSARPlane {
+        return [
+            "x": center.x,
+            "y": center.z,
+            "width": extent.x,
+            "height": extent.z,
+            "vertical": alignment == .vertical
+        ]
+    }
+    
+    func area() -> Float {
+        return extent.x * extent.z
+    }
 }
 
 

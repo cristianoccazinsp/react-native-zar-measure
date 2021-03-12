@@ -24,6 +24,8 @@ class HitResult {
 
 public typealias MeasurementLine = Dictionary<String, Any>
 public typealias MeasurementLine2D = Dictionary<String, Any>
+public typealias JSARPlane = Dictionary<String, Any>
+
 
 @available(iOS 13, *)
 class MeasurementGroup {
@@ -380,28 +382,31 @@ class TextNode: SCNNode {
 @available(iOS 13.0, *)
 class AnchorPlaneNode: SCNNode {
     let extentNode: SCNNode
-    let color: UIColor
-    var classificationNode: SCNNode?
-    
+    let sphereNode: SCNNode
     
     init(anchor: ARPlaneAnchor) {
         
-        color = anchor.color
+        let color = anchor.color
         
         // Create a node to visualize the plane's bounding rectangle.
         let extentPlane = SCNPlane(width: CGFloat(anchor.extent.x), height: CGFloat(anchor.extent.z))
         extentNode = SCNNode(geometry: extentPlane)
         extentNode.simdPosition = anchor.center
-        
-        extentPlane.firstMaterial?.readsFromDepthBuffer = false
-        extentPlane.firstMaterial?.writesToDepthBuffer = false
         extentPlane.firstMaterial?.diffuse.contents = color.withAlphaComponent(0.5)
-        
         extentNode.renderingOrder = -5
         
         // `SCNPlane` is vertically oriented in its local coordinate space, so
         // rotate it to match the orientation of `ARPlaneAnchor`.
         extentNode.eulerAngles.x = -.pi / 2
+        
+        
+        // to visualize the plane's center
+        let sphere = SCNSphere(radius: 0.006)
+        sphere.firstMaterial?.diffuse.contents = color
+        
+        sphereNode = SCNNode(geometry: sphere)
+        sphereNode.simdPosition = anchor.center
+        sphereNode.renderingOrder = -4
 
         super.init()
         self.name = "AnchorPlaneNode"
@@ -409,6 +414,7 @@ class AnchorPlaneNode: SCNNode {
         // Add the plane extent and plane geometry as child nodes so they appear in the scene.
         //addChildNode(geometryNode)
         addChildNode(extentNode)
+        addChildNode(sphereNode)
     }
     
     required init?(coder aDecoder: NSCoder) {
@@ -416,15 +422,54 @@ class AnchorPlaneNode: SCNNode {
     }
     
     public func updatePlane(_ anchor: ARPlaneAnchor){
-
+        let color = anchor.color
+        
         // Update extent visualization to the anchor's new bounding rectangle.
         if let extentGeometry = extentNode.geometry as? SCNPlane {
             extentGeometry.width = CGFloat(anchor.extent.x)
             extentGeometry.height = CGFloat(anchor.extent.z)
+            extentGeometry.firstMaterial?.diffuse.contents = color.withAlphaComponent(0.5)
             extentNode.simdPosition = anchor.center
+        }
+        sphereNode.simdPosition = anchor.center
+        sphereNode.geometry?.firstMaterial?.diffuse.contents = color
+    }
+}
+
+
+@available(iOS 13.0, *)
+class AnchorGeometryNode: SCNNode {
+    let meshNode: SCNNode
+    
+    init(anchor: ARPlaneAnchor, in sceneView: ARSCNView) {
+        
+        // Create a mesh to visualize the estimated shape of the plane.
+        guard let meshGeometry = ARSCNPlaneGeometry(device: sceneView.device!)
+            else { fatalError("Can't create plane geometry") }
+        
+        meshGeometry.update(from: anchor.geometry)
+        meshGeometry.firstMaterial?.diffuse.contents = anchor.color.withAlphaComponent(0.5)
+        meshNode = SCNNode(geometry: meshGeometry)
+        meshNode.renderingOrder = -5
+
+        super.init()
+        self.name = "AnchorGeometryNode"
+        
+        addChildNode(meshNode)
+    }
+    
+    required init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    public func updateMesh(_ anchor: ARPlaneAnchor){
+        if let meshGeometry = meshNode.geometry as? ARSCNPlaneGeometry {
+            meshGeometry.update(from: anchor.geometry)
+            meshGeometry.firstMaterial?.diffuse.contents = anchor.color.withAlphaComponent(0.5)
         }
     }
 }
+
 
 @available(iOS 13.4, *)
 class AnchorMeshNode: SCNNode {
@@ -443,8 +488,6 @@ class AnchorMeshNode: SCNNode {
         // assign a material suitable for default visualization
         defaultMaterial.fillMode = .lines
         defaultMaterial.diffuse.contents = classification.color
-//        defaultMaterial.readsFromDepthBuffer = false
-//        defaultMaterial.writesToDepthBuffer = false
         geometry.materials = [defaultMaterial]
         
         meshNode = SCNNode()
@@ -452,7 +495,7 @@ class AnchorMeshNode: SCNNode {
         
         super.init()
         self.name = "AnchorMeshNode"
-        //self.renderingOrder = -4
+        self.renderingOrder = -4
         
         addChildNode(meshNode)
     }

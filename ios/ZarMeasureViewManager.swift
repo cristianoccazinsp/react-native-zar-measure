@@ -201,6 +201,24 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
         }
     }
     
+    @objc
+    func getPlanes(_ node:NSNumber, minArea area: NSNumber, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    {
+        if #available(iOS 13, *) {
+            DispatchQueue.main.async { [weak self] in
+                
+                guard let view = self?.bridge.uiManager.view(forReactTag: node) as? ZarMeasureView else {
+                    resolve([])
+                    return;
+                }
+                
+                resolve(view.getPlanes(Float(truncating: area)))
+            }
+        }
+        else{
+            resolve([])
+        }
+    }
     
     @objc
     func takePicture(_ node:NSNumber, imagePath path: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void

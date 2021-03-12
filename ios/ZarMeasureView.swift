@@ -24,6 +24,7 @@ import ARKit
     @objc public var onMeasuringStatusChange: RCTDirectEventBlock? = nil
     @objc public var onMountError: RCTDirectEventBlock? = nil
     @objc public var onTextTap: RCTDirectEventBlock? = nil
+    @objc public var onPlaneTap: RCTDirectEventBlock? = nil
     
     
     // MARK: Public methods and properties with setters
@@ -48,11 +49,38 @@ import ARKit
                 else{
                     if let anchors = sceneView.session.currentFrame?.anchors {
                         for anchor in anchors {
-                            if let node = sceneView.node(for: anchor) {
-                                if let planeAnchor = anchor as? ARPlaneAnchor {
-                                    let plane = AnchorPlaneNode(anchor: planeAnchor)
-                                    node.addChildNode(plane)
-                                }
+                            if let node = sceneView.node(for: anchor), let planeAnchor = anchor as? ARPlaneAnchor {
+                                    
+                                let plane = AnchorPlaneNode(anchor: planeAnchor)
+                                node.addChildNode(plane)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    @objc public var showGeometry = false {
+        willSet {
+            if showGeometry != newValue {
+                // TODO: Do we need to run this on the UI thread?
+                
+                if !newValue {
+                    // recursively loop through all nodes and remove our anchor geometry meshes
+                    sceneView.scene.rootNode.enumerateChildNodes { (node, stop) in
+                        if let mesh = node as? AnchorGeometryNode {
+                            mesh.removeFromParentNode()
+                        }
+                    }
+                }
+                else{
+                    if let anchors = sceneView.session.currentFrame?.anchors {
+                        for anchor in anchors {
+                            if let node = sceneView.node(for: anchor), let planeAnchor = anchor as? ARPlaneAnchor {
+                                    
+                                let plane = AnchorGeometryNode(anchor: planeAnchor, in: sceneView)
+                                node.addChildNode(plane)
                             }
                         }
                     }
@@ -77,11 +105,10 @@ import ARKit
                     else{
                         if let anchors = sceneView.session.currentFrame?.anchors {
                             for anchor in anchors {
-                                if let node = sceneView.node(for: anchor) {
-                                    if let meshAnchor = anchor as? ARMeshAnchor {
-                                        let mesh = AnchorMeshNode(anchor: meshAnchor)
-                                        node.addChildNode(mesh)
-                                    }
+                                if let node = sceneView.node(for: anchor), let meshAnchor = anchor as? ARMeshAnchor {
+                                    
+                                    let mesh = AnchorMeshNode(anchor: meshAnchor)
+                                    node.addChildNode(mesh)
                                 }
                             }
                         }
@@ -205,6 +232,27 @@ import ARKit
     func getMeasurements() -> [MeasurementLine]{
         return measurements.enumerated().map { (index, element) in
             return element.toDict()
+        }
+    }
+    
+    func getPlanes(_ minArea: Float) -> [JSARPlane]{
+        if let anchors = sceneView.session.currentFrame?.anchors {
+            
+            var res : [MeasurementLine] = []
+            
+            for anchor in anchors {
+                // let node = sceneView.node(for: anchor)
+                if let planeAnchor = anchor as? ARPlaneAnchor {
+                    if planeAnchor.area() >= minArea {
+                        res.append(planeAnchor.toDict())
+                    }
+                }
+            }
+            
+            return res
+        }
+        else{
+            return []
         }
     }
     
@@ -553,6 +601,19 @@ import ARKit
             }
         }
         
+        if(showGeometry){
+            // Place content only for anchors found by plane detection.
+            if let planeAnchor = anchor as? ARPlaneAnchor{
+                // Create a node to visualize the plane's bounding rectangle.
+                // Create a custom object to visualize the plane geometry and extent.
+                let mesh = AnchorGeometryNode(anchor: planeAnchor, in: sceneView)
+                
+                // Add the visualization to the ARKit-managed node so that it tracks
+                // changes in the geometry anchor as plane estimation continues.
+                node.addChildNode(mesh)
+            }
+        }
+        
         if(showMeshes){
             if #available(iOS 13.4, *){
                 if let meshAnchor = anchor as? ARMeshAnchor {
@@ -577,6 +638,14 @@ import ARKit
             }
         }
         
+        if(showGeometry){
+            if let planeAnchor = anchor as? ARPlaneAnchor,
+               let mesh = node.childNodes.first as? AnchorGeometryNode {
+                
+                mesh.updateMesh(planeAnchor)
+            }
+        }
+        
         if(showMeshes){
             if #available(iOS 13.4, *){
                 if let meshAnchor = anchor as? ARMeshAnchor,
@@ -587,7 +656,7 @@ import ARKit
             }
         }
     }
-       
+
     // renderer callback method to fire hit tests and scale items
     public func renderer(_ renderer: SCNSceneRenderer, updateAtTime time: TimeInterval) {
         
@@ -773,11 +842,16 @@ import ARKit
         }
         
         guard let sceneView = sender.view as? ARSCNView else {return}
+        
         let touchLocation = sender.location(in: sceneView)
+        
+        
+        // First try to hit against our text nodes
+        
         let result = sceneView.hitTest(touchLocation, options: [SCNHitTestOption.searchMode: 1, SCNHitTestOption.rootNode: rootNode])
         
-        // search all results to see if we have a text node
-        // in one of our measurements
+        // search all results to see if we have a text node in one of our measurements
+        // or ultimately a plane node
         for r in result {
             
             // we may get a hit on the plane node, or text node
@@ -793,16 +867,35 @@ import ARKit
                 continue
             }
             
-            
             if let _textNode = textNode {
                 if let measurement = measurements.first(where: {_textNode.id == $0.id}){
                     self.onTextTap?(["measurement": measurement.toDict(), "location": ["x": touchLocation.x, "y": touchLocation.y]])
                     
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    if self.onTextTap != nil {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    }
                     
                     return
                 }
             }
+        }
+        
+        // if we got here, no hits, do a raycast and try to get a plane anchor
+        // Only hit against planes, no estimations
+        guard let query = sceneView.raycastQuery(from: touchLocation, allowing: .existingPlaneGeometry, alignment: .any) else{
+            
+            // this should never happen
+            return
+        }
+        
+        if let first = sceneView.session.raycast(query).first, let anchor = first.anchor as? ARPlaneAnchor {
+            
+            self.onPlaneTap?(["plane": anchor.toDict(), "location": ["x": touchLocation.x, "y": touchLocation.y]])
+            
+            if self.onPlaneTap != nil {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            }
+            return
         }
     }
     

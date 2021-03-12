@@ -6,7 +6,6 @@ import { requireNativeComponent, NativeModules, ViewStyle, Platform,
 
 const ZarMeasureModule = NativeModules.ZarMeasureViewManager || NativeModules.ZarMeasureModule;
 const Consts = ZarMeasureModule.getConstants();
-const dummy = () => {};
 
 
 type ZarMeasureViewProps = {
@@ -28,12 +27,17 @@ type ZarMeasureViewProps = {
   notAuthorizedView: React.Component,
 
   /**
-   * if set to true, draws planes in the scene
+   * if set to true, draws planes in the scene. These are raw estimates of shapes
   */
   showPlanes: boolean,
 
   /**
-   * if set to true and supported, draws meshes in the scene.
+   * if set to true, draws geometry in the scene. These are higher accuracy shapes
+  */
+  showGeometry: boolean,
+
+  /**
+   * if set to true and supported, draws high accuracy meshes in the scene.
    *
    * Check Constants.MESH_SUPPORTED to see if meshes are supported.
   */
@@ -110,8 +114,17 @@ type ZarMeasureViewProps = {
 
   /**
    * Called when a measurement label is tapped.
+   *
+   * location: screen tap location
    */
   onTextTap(evt: {measurement: MeasurementLine, location: {x: number, y: number}}):void,
+
+  /**
+   * Called when a detected plane is tapped
+   *
+   * location: screen tap location
+   */
+  onPlaneTap(evt: {plane: ARPlane, location: {x: number, y: number}}):void,
 }
 
 type MeasurementNode = {
@@ -137,6 +150,20 @@ type MeasurementLine2D = {
   distance: number // in meters in 3rd world
 }
 
+/**
+ * x, y coordinates are the plane's center relative to the (0, 0)
+ * in the plane given its vertical or horizontal position
+ *
+ * TODO: Review if these positions are correct
+ */
+type ARPlane = {
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  vertical: boolean, // true if vertical, false if horizontal plane
+}
+
 export const androidCameraPermissionOptions = {
   title: 'Permission to use camera',
   message: 'We need your permission to use your camera.',
@@ -154,11 +181,6 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     minDistanceCamera: 0.05,
     maxDistanceCamera: 5,
     intersectDistance: 0.1,
-    onCameraStatusChange: dummy,
-    onARStatusChange: dummy,
-    onMeasuringStatusChange: dummy,
-    onMountError: dummy,
-    onTextTap: dummy
   }
 
   // ------ Consts ----------------
@@ -257,7 +279,20 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     if(handle){
       return await ZarMeasureModule.getMeasurements(handle);
     }
-    return {error: "View not available", added: false};
+    return [];
+  }
+
+  /**
+   * Returns existing rectangular (rough) planes currently detected in the world.
+   *
+   * minArea: excludes planes that are not at least this value big (m)
+   */
+  async getPlanes(minArea=0) : [ARPlane] {
+    const handle = findNodeHandle(this._ref.current);
+    if(handle){
+      return await ZarMeasureModule.getPlanes(handle, minArea);
+    }
+    return [];
   }
 
   /**
@@ -323,6 +358,7 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     const granted = await this.requestPermissions();
 
     if(this._mounted){
+      this.onCameraStatusChange && this.onCameraStatusChange(granted);
       this.setState({
         authorized: granted,
         authChecked: true
@@ -360,19 +396,23 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
   }
 
   onARStatusChange = (evt) => {
-    this.props.onARStatusChange(evt.nativeEvent);
+    this.props.onARStatusChange && this.props.onARStatusChange(evt.nativeEvent);
   }
 
   onMeasuringStatusChange = (evt) => {
-    this.props.onMeasuringStatusChange(evt.nativeEvent);
+    this.props.onMeasuringStatusChange && this.props.onMeasuringStatusChange(evt.nativeEvent);
   }
 
   onMountError = (evt) => {
-    this.props.onMountError(evt.nativeEvent);
+    this.props.onMountError && this.props.onMountError(evt.nativeEvent);
   }
 
   onTextTap = (evt) => {
-    this.props.onTextTap(evt.nativeEvent)
+    this.props.onTextTap && this.props.onTextTap(evt.nativeEvent)
+  }
+
+  onPlaneTap = (evt) => {
+    this.props.onPlaneTap && this.props.onPlaneTap(evt.nativeEvent)
   }
 
   render(){
@@ -391,8 +431,12 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
       onMeasuringStatusChange,
       onMountError,
       onTextTap,
+      onPlaneTap,
       ...props
     } = this.props;
+
+    // avoid sending onTextTap and onPlaneTap
+    // so vibration is not triggered if not used
 
     return (
       <NativeZarMeasureView
@@ -401,7 +445,8 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
         onARStatusChange={this.onARStatusChange}
         onMeasuringStatusChange={this.onMeasuringStatusChange}
         onMountError={this.onMountError}
-        onTextTap={this.onTextTap}
+        onTextTap={onTextTap ? this.onTextTap : undefined}
+        onPlaneTap={onPlaneTap ? this.onPlaneTap : undefined}
       />
     )
   }
