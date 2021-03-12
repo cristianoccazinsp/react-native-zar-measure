@@ -325,6 +325,7 @@ class DebugMesh: SCNNode {
     
     let meshNode: SCNNode
     var classification: ARMeshClassification
+    var defaultMaterial = SCNMaterial()
     
     /// - Tag: VisualizePlane
     init(anchor: ARMeshAnchor) {
@@ -334,9 +335,10 @@ class DebugMesh: SCNNode {
         classification = anchor.geometry.classificationOf(faceWithIndex: 0)
         
         // assign a material suitable for default visualization
-        let defaultMaterial = SCNMaterial()
         defaultMaterial.fillMode = .lines
         defaultMaterial.diffuse.contents = classification.color.withAlphaComponent(0.8)
+//        defaultMaterial.readsFromDepthBuffer = false
+//        defaultMaterial.writesToDepthBuffer = false
         geometry.materials = [defaultMaterial]
         
         meshNode = SCNNode()
@@ -355,11 +357,7 @@ class DebugMesh: SCNNode {
     public func updateMesh(_ anchor: ARMeshAnchor){
         classification = anchor.geometry.classificationOf(faceWithIndex: 0)
         let newGeometry = SCNGeometry.fromAnchor(meshAnchor: anchor)
-        let defaultMaterial = SCNMaterial()
-        defaultMaterial.fillMode = .lines
         defaultMaterial.diffuse.contents = classification.color.withAlphaComponent(0.8)
-        defaultMaterial.readsFromDepthBuffer = false
-        defaultMaterial.writesToDepthBuffer = false
         newGeometry.materials = [defaultMaterial]
         meshNode.geometry = newGeometry
     }
