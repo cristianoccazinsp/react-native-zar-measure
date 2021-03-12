@@ -15,18 +15,81 @@ import ARKit
     }
 
     // MARK: Public properties
+    
     @objc public var units: String = "m"
     @objc public var minDistanceCamera: CGFloat = 0.05
     @objc public var maxDistanceCamera: CGFloat = 5
     @objc public var intersectDistance: CGFloat = 0.1
-    @objc public var debugPlanes = false
-    @objc public var debugMeshes = false
     @objc public var onARStatusChange: RCTDirectEventBlock? = nil
     @objc public var onMeasuringStatusChange: RCTDirectEventBlock? = nil
     @objc public var onMountError: RCTDirectEventBlock? = nil
     @objc public var onTextTap: RCTDirectEventBlock? = nil
     
-    // MARK: Public methods
+    
+    // MARK: Public methods and properties with setters
+    
+    
+    // when either planes or meshes visualization is updated
+    // we need to add or delete all anchor visualization nodes
+    // we know that all these nodes are in the view's root
+    @objc public var showPlanes = false {
+        willSet {
+            if showPlanes != newValue {
+                // TODO: Do we need to run this on the UI thread?
+                
+                if !newValue {
+                    // recursively loop through all nodes and remove our anchor planes
+                    sceneView.scene.rootNode.enumerateChildNodes { (node, stop) in
+                        if let plane = node as? AnchorPlaneNode {
+                            plane.removeFromParentNode()
+                        }
+                    }
+                }
+                else{
+                    if let anchors = sceneView.session.currentFrame?.anchors {
+                        for anchor in anchors {
+                            if let node = sceneView.node(for: anchor) {
+                                if let planeAnchor = anchor as? ARPlaneAnchor {
+                                    let plane = AnchorPlaneNode(anchor: planeAnchor)
+                                    node.addChildNode(plane)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    @objc public var showMeshes = false {
+        willSet {
+            if showMeshes != newValue {
+                if #available(iOS 13.4, *){
+                    
+                    if !newValue {
+                        // recursively loop through all nodes and remove our anchor meshes
+                        sceneView.scene.rootNode.enumerateChildNodes { (node, stop) in
+                            if let mesh = node as? AnchorMeshNode {
+                                mesh.removeFromParentNode()
+                            }
+                        }
+                    }
+                    else{
+                        if let anchors = sceneView.session.currentFrame?.anchors {
+                            for anchor in anchors {
+                                if let node = sceneView.node(for: anchor) {
+                                    if let meshAnchor = anchor as? ARMeshAnchor {
+                                        let mesh = AnchorMeshNode(anchor: meshAnchor)
+                                        node.addChildNode(mesh)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
     
     
     @objc public var torchOn = false {
@@ -237,12 +300,12 @@ import ARKit
         takingPicture = true
         
         // temporary remove target nodes from view
-        // and any debug node
+        // and any anchor vewer node
         
         targetNode?.isHidden = true
         lineNode?.isHidden = true
         
-        // we know that all debug nodes are added to the view
+        // we know that all anchor view nodes are added to the view's
         // root node, and not our own root node
         for n in sceneView.scene.rootNode.childNodes {
             if n != rootNode {
@@ -477,12 +540,12 @@ import ARKit
     
     public func renderer(_ renderer: SCNSceneRenderer, didAdd node: SCNNode, for anchor: ARAnchor) {
 
-        if(debugPlanes){
+        if(showPlanes){
             // Place content only for anchors found by plane detection.
             if let planeAnchor = anchor as? ARPlaneAnchor{
                 // Create a node to visualize the plane's bounding rectangle.
                 // Create a custom object to visualize the plane geometry and extent.
-                let plane = DebugPlane(anchor: planeAnchor)
+                let plane = AnchorPlaneNode(anchor: planeAnchor)
                 
                 // Add the visualization to the ARKit-managed node so that it tracks
                 // changes in the plane anchor as plane estimation continues.
@@ -490,11 +553,11 @@ import ARKit
             }
         }
         
-        if(debugMeshes){
+        if(showMeshes){
             if #available(iOS 13.4, *){
                 if let meshAnchor = anchor as? ARMeshAnchor {
                     
-                    let meshNode = DebugMesh(anchor: meshAnchor)
+                    let meshNode = AnchorMeshNode(anchor: meshAnchor)
                     
                     node.addChildNode(meshNode)
                 }
@@ -506,18 +569,18 @@ import ARKit
         
         
         // Update only anchors and nodes set up by `renderer(_:didAdd:for:)`.
-        if(debugPlanes){
+        if(showPlanes){
             if let planeAnchor = anchor as? ARPlaneAnchor,
-               let plane = node.childNodes.first as? DebugPlane {
+               let plane = node.childNodes.first as? AnchorPlaneNode {
                 
                 plane.updatePlane(planeAnchor)
             }
         }
         
-        if(debugMeshes){
+        if(showMeshes){
             if #available(iOS 13.4, *){
                 if let meshAnchor = anchor as? ARMeshAnchor,
-                   let mesh = node.childNodes.first as? DebugMesh {
+                   let mesh = node.childNodes.first as? AnchorMeshNode {
                     
                     mesh.updateMesh(meshAnchor)
                 }
@@ -1020,111 +1083,5 @@ import ARKit
                 NSLog("Torch is not available")
             }
         }
-    }
-}
-
-
-@available(iOS 13, *)
-class HitResult {
-    // wrapper for hit results
-    var distance : CGFloat
-    var transform : simd_float4x4
-    var anchor : ARAnchor? = nil
-    var position : SCNVector3
-    var isCloseNode : Bool
-    
-    init(_ distance:CGFloat, _ hitPos:SCNVector3, _ closeNode:Bool, _ raycast:ARRaycastResult){
-        self.distance = distance
-        self.transform = raycast.worldTransform
-        self.anchor = raycast.anchor //as? ARPlaneAnchor
-        self.position = hitPos
-        self.isCloseNode = closeNode
-    }
-}
-
-
-public typealias MeasurementLine = Dictionary<String, Any>
-public typealias MeasurementLine2D = Dictionary<String, Any>
-
-@available(iOS 13, *)
-class MeasurementGroup {
-    let id : String
-    var node1 : SphereNode
-    var node2 : SphereNode
-    var line : LineNode
-    var text : TextNode
-    var distance : Float
-    
-    init(_ id:String, _ node1:SphereNode, _ node2:SphereNode, _ line:LineNode, _ text:TextNode, _ distance:CGFloat){
-        self.id = id
-        self.node1 = node1
-        self.node2 = node2
-        self.line = line
-        self.text = text
-        self.distance = Float(distance)
-        self.text.id = id
-    }
-    
-    func toDict() -> MeasurementLine {
-        return [
-            "id": id,
-            "node1": [
-                "x": node1.worldPosition.x,
-                "y": node1.worldPosition.y,
-                "z": node1.worldPosition.z
-            ],
-            "node2": [
-                "x": node2.worldPosition.x,
-                "y": node2.worldPosition.y,
-                "z": node2.worldPosition.z
-            ],
-            "distance": self.distance,
-            "label": self.text.label
-        ]
-    }
-    
-    // same as to dict, but returns the 2D projections in the current image frame
-    func toDict2D(_ view:ARSCNView) -> MeasurementLine2D? {
-        
-        let size = view.bounds.size
-        let orientation = UIApplication.shared.statusBarOrientation
-        
-        if let camera =  view.session.currentFrame?.camera {
-            
-            let projected1 = camera.projectPoint(node1.simdWorldPosition, orientation: orientation, viewportSize: size)
-            let projected2 = camera.projectPoint(node2.simdWorldPosition, orientation: orientation, viewportSize: size)
-                
-            
-            var res : MeasurementLine2D = [
-                "id": id,
-                "distance": self.distance,
-                "label": self.text.label,
-                "bounds": [
-                    "width": size.width,
-                    "height": size.height
-                ]
-            ]
-            
-            if (projected1.x >= 0 && projected1.x <= size.width && projected1.y >= 0 && projected1.y <= size.height){
-                
-                res["node1"] = [
-                    "x": projected1.x,
-                    "y": projected1.y
-                ]
-            }
-            
-            if (projected2.x >= 0 && projected2.x <= size.width && projected2.y >= 0 && projected2.y <= size.height){
-                
-                res["node2"] = [
-                    "x": projected2.x,
-                    "y": projected2.y
-                ]
-            }
-            
-            return res
-        }
-        
-        return nil
-        
     }
 }

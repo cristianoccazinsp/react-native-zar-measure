@@ -30,14 +30,14 @@ type ZarMeasureViewProps = {
   /**
    * if set to true, draws planes in the scene
   */
-  debugPlanes: boolean,
+  showPlanes: boolean,
 
   /**
    * if set to true and supported, draws meshes in the scene.
    *
    * Check Constants.MESH_SUPPORTED to see if meshes are supported.
   */
-  debugMeshes: boolean,
+  showMeshes: boolean,
 
   /** Units to render labels */
   units: 'm' | 'ft',

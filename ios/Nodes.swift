@@ -3,6 +3,112 @@ import UIKit
 import ARKit
 
 
+@available(iOS 13, *)
+class HitResult {
+    // wrapper for hit results
+    var distance : CGFloat
+    var transform : simd_float4x4
+    var anchor : ARAnchor? = nil
+    var position : SCNVector3
+    var isCloseNode : Bool
+    
+    init(_ distance:CGFloat, _ hitPos:SCNVector3, _ closeNode:Bool, _ raycast:ARRaycastResult){
+        self.distance = distance
+        self.transform = raycast.worldTransform
+        self.anchor = raycast.anchor //as? ARPlaneAnchor
+        self.position = hitPos
+        self.isCloseNode = closeNode
+    }
+}
+
+
+public typealias MeasurementLine = Dictionary<String, Any>
+public typealias MeasurementLine2D = Dictionary<String, Any>
+
+@available(iOS 13, *)
+class MeasurementGroup {
+    let id : String
+    var node1 : SphereNode
+    var node2 : SphereNode
+    var line : LineNode
+    var text : TextNode
+    var distance : Float
+    
+    init(_ id:String, _ node1:SphereNode, _ node2:SphereNode, _ line:LineNode, _ text:TextNode, _ distance:CGFloat){
+        self.id = id
+        self.node1 = node1
+        self.node2 = node2
+        self.line = line
+        self.text = text
+        self.distance = Float(distance)
+        self.text.id = id
+    }
+    
+    func toDict() -> MeasurementLine {
+        return [
+            "id": id,
+            "node1": [
+                "x": node1.worldPosition.x,
+                "y": node1.worldPosition.y,
+                "z": node1.worldPosition.z
+            ],
+            "node2": [
+                "x": node2.worldPosition.x,
+                "y": node2.worldPosition.y,
+                "z": node2.worldPosition.z
+            ],
+            "distance": self.distance,
+            "label": self.text.label
+        ]
+    }
+    
+    // same as to dict, but returns the 2D projections in the current image frame
+    func toDict2D(_ view:ARSCNView) -> MeasurementLine2D? {
+        
+        let size = view.bounds.size
+        let orientation = UIApplication.shared.statusBarOrientation
+        
+        if let camera =  view.session.currentFrame?.camera {
+            
+            let projected1 = camera.projectPoint(node1.simdWorldPosition, orientation: orientation, viewportSize: size)
+            let projected2 = camera.projectPoint(node2.simdWorldPosition, orientation: orientation, viewportSize: size)
+                
+            
+            var res : MeasurementLine2D = [
+                "id": id,
+                "distance": self.distance,
+                "label": self.text.label,
+                "bounds": [
+                    "width": size.width,
+                    "height": size.height
+                ]
+            ]
+            
+            if (projected1.x >= 0 && projected1.x <= size.width && projected1.y >= 0 && projected1.y <= size.height){
+                
+                res["node1"] = [
+                    "x": projected1.x,
+                    "y": projected1.y
+                ]
+            }
+            
+            if (projected2.x >= 0 && projected2.x <= size.width && projected2.y >= 0 && projected2.y <= size.height){
+                
+                res["node2"] = [
+                    "x": projected2.x,
+                    "y": projected2.y
+                ]
+            }
+            
+            return res
+        }
+        
+        return nil
+        
+    }
+}
+
+
 @available(iOS 11.0, *)
 class LineNode: SCNNode {
     private let cylinder : SCNCylinder
@@ -272,12 +378,12 @@ class TextNode: SCNNode {
 
 
 @available(iOS 13.0, *)
-class DebugPlane: SCNNode {
+class AnchorPlaneNode: SCNNode {
     let extentNode: SCNNode
     let color: UIColor
     var classificationNode: SCNNode?
     
-    /// - Tag: VisualizePlane
+    
     init(anchor: ARPlaneAnchor) {
         
         color = anchor.color
@@ -298,7 +404,7 @@ class DebugPlane: SCNNode {
         extentNode.eulerAngles.x = -.pi / 2
 
         super.init()
-
+        self.name = "AnchorPlaneNode"
 
         // Add the plane extent and plane geometry as child nodes so they appear in the scene.
         //addChildNode(geometryNode)
@@ -321,7 +427,7 @@ class DebugPlane: SCNNode {
 }
 
 @available(iOS 13.4, *)
-class DebugMesh: SCNNode {
+class AnchorMeshNode: SCNNode {
     
     let meshNode: SCNNode
     var classification: ARMeshClassification
@@ -345,6 +451,7 @@ class DebugMesh: SCNNode {
         meshNode.geometry = geometry
         
         super.init()
+        self.name = "AnchorMeshNode"
         //self.renderingOrder = -4
         
         addChildNode(meshNode)
