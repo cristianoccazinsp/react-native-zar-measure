@@ -35,6 +35,20 @@ import ARKit
         }
     }
     
+    @objc public var paused = false {
+        didSet {
+            DispatchQueue.main.async {
+                if(self.paused){
+                    self.toggleSession(false)
+                }
+                else{
+                    self.toggleSession(true)
+                }
+            }
+        }
+    }
+    
+    
     // Removes all nodes and lines
     // Must be called on UI thread
     func clear()
@@ -328,6 +342,8 @@ import ARKit
 
     // MARK: Private properties
     private var sceneView = ARSCNView()
+    private var configuration = ARWorldTrackingConfiguration()
+    private var isRunning = false // to control session toggles
     private var sceneCenter = CGPoint(x: 0, y: 0)
     private var rootNode = SCNNode()
     private var coachingView : ARCoachingOverlayView = ARCoachingOverlayView()
@@ -395,87 +411,10 @@ import ARKit
         super.willMove(toSuperview: newSuperview)
         
         if(newSuperview == nil){
-            
-            // remove gesture handlers, delegates, and stop session
-            
-            coachingView.delegate = nil
-            coachingView.session = nil
-            
-            sceneView.gestureRecognizers?.removeAll()
-            sceneView.delegate = nil
-            sceneView.session.delegate = nil
-            sceneView.session.pause()
-            
-            arReady = false
-            arStatus = "off"
-            measuringStatus = "off"
-            
-            // only turn off torch if we were set to turn it on
-            // otherwise we would call this unnecessarily.
-            if(self.torchOn){
-                toggleTorch(false)
-            }
+            toggleSession(false)
         }
         else{
-            
-            // Create a session configuration
-            let configuration = ARWorldTrackingConfiguration()
-            
-            configuration.planeDetection = [.vertical, .horizontal]
-            configuration.worldAlignment = .gravity
-            configuration.isLightEstimationEnabled = false
-            
-            // this should technically use Lidar sensors and greatly
-            // improve accuracy
-            if #available(iOS 13.4, *) {
-                if(ZarMeasureView.SUPPORTS_MESH){
-                    configuration.sceneReconstruction = .meshWithClassification
-                }
-            }
-        
-            
-            sceneView.preferredFramesPerSecond = 30
-            sceneView.automaticallyUpdatesLighting = false
-            sceneView.rendersCameraGrain = false
-            //sceneView.debugOptions = [.showFeaturePoints]
-            sceneView.showsStatistics = false
-            sceneView.antialiasingMode = .multisampling2X
-            
-            // Set the view's delegate and session delegate
-            sceneView.delegate = self
-            sceneView.session.delegate = self
-            
-            // Run the view's session
-            arReady = false
-            arStatus = "off"
-            measuringStatus = "off"
-            
-            // Add coaching view
-            coachingView.delegate = self
-            coachingView.session = sceneView.session
-            
-            // start session
-            sceneView.session.run(configuration)
-            
-            // run this afterwards, for some reason the session takes time to start
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
-                guard let self = self else {return}
-                
-                if self.sceneView.delegate != nil && !self.coachingView.isActive && !self.arReady {
-                    self.coachingView.setActive(true, animated: true)
-                }
-            }
-            
-            // add tap gestures as well
-            let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
-            tapGestureRecognizer.cancelsTouchesInView = false
-            self.sceneView.addGestureRecognizer(tapGestureRecognizer)
-            
-            // only turn on torch if we were set to turn it on
-            // otherwise we would call this unnecessarily.
-            if(self.torchOn){
-                toggleTorch(self.torchOn)
-            }
+            toggleSession(true)
         }
     }
 
@@ -514,15 +453,20 @@ import ARKit
         self.onMountError?(["message": error.localizedDescription])
     }
     
+    public func sessionWasInterrupted(_ session: ARSession) {
+        isRunning = false
+    }
+    
     public func sessionInterruptionEnded(_ session: ARSession) {
         // if interruption ended and we had flash, try to turn it on again
         if torchOn {
             toggleTorch(true)
         }
+        isRunning = true
     }
     
     public func sessionShouldAttemptRelocalization(_ session: ARSession) -> Bool {
-        return false
+        return true
     }
     
     public func renderer(_ renderer: SCNSceneRenderer, didAdd node: SCNNode, for anchor: ARAnchor) {
@@ -798,6 +742,26 @@ import ARKit
     
     private func commonInit() {
         
+        // Main view setup
+        configuration.planeDetection = [.vertical, .horizontal]
+        configuration.worldAlignment = .gravity
+        configuration.isLightEstimationEnabled = false
+        
+        // this should technically use Lidar sensors and greatly
+        // improve accuracy
+        if #available(iOS 13.4, *) {
+            if(ZarMeasureView.SUPPORTS_MESH){
+                configuration.sceneReconstruction = .meshWithClassification
+            }
+        }
+        
+        sceneView.preferredFramesPerSecond = 30
+        sceneView.automaticallyUpdatesLighting = false
+        sceneView.rendersCameraGrain = false
+        //sceneView.debugOptions = [.showFeaturePoints]
+        sceneView.showsStatistics = false
+        sceneView.antialiasingMode = .multisampling2X
+        
         // add our main scene view
         addSubview(sceneView)
         
@@ -821,6 +785,79 @@ import ARKit
         measurementLabel.textAlignment = .center
         addSubview(measurementLabel)
     }
+    
+    
+    // must be called on UI thread
+    private func toggleSession(_ on:Bool){
+        
+        if(on){
+            // avoid starting it if it was running
+            if isRunning {
+                return
+            }
+            
+            // Set the view's delegate and session delegate
+            sceneView.delegate = self
+            sceneView.session.delegate = self
+            
+            // Run the view's session
+            arReady = false
+            arStatus = "off"
+            measuringStatus = "off"
+            
+            // Add coaching view
+            coachingView.delegate = self
+            coachingView.session = sceneView.session
+            
+            // start session
+            sceneView.session.run(configuration)
+            isRunning = true
+            
+            // run this afterwards, for some reason the session takes time to start
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+                guard let self = self else {return}
+                
+                if self.sceneView.delegate != nil && !self.coachingView.isActive && !self.arReady {
+                    self.coachingView.setActive(true, animated: true)
+                }
+            }
+            
+            // add tap gestures as well
+            let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
+            tapGestureRecognizer.cancelsTouchesInView = false
+            self.sceneView.addGestureRecognizer(tapGestureRecognizer)
+            
+            // only turn on torch if we were set to turn it on
+            // otherwise we would call this unnecessarily.
+            if(self.torchOn){
+                toggleTorch(self.torchOn)
+            }
+        }
+        else{
+            
+            // remove gesture handlers, delegates, and stop session
+            coachingView.delegate = nil
+            coachingView.session = nil
+            
+            sceneView.gestureRecognizers?.removeAll()
+            sceneView.delegate = nil
+            sceneView.session.delegate = nil
+            sceneView.session.pause()
+            
+            arReady = false
+            arStatus = "off"
+            measuringStatus = "off"
+            
+            // only turn off torch if we were set to turn it on
+            // otherwise we would call this unnecessarily.
+            if(self.torchOn){
+                toggleTorch(false)
+            }
+            
+            isRunning = false
+        }
+    }
+    
     
     private func getNextId() -> String {
         let next = String(nodeId)

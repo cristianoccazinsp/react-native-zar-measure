@@ -28,10 +28,16 @@ type ZarMeasureViewProps = {
   notAuthorizedView: React.Component,
 
   /**
-   * if set to true, draws detected plane anchors
-   * default: false
+   * if set to true, draws planes in the scene
   */
-  debugMode: boolean,
+  debugPlanes: boolean,
+
+  /**
+   * if set to true and supported, draws meshes in the scene.
+   *
+   * Check Constants.MESH_SUPPORTED to see if meshes are supported.
+  */
+  debugMeshes: boolean,
 
   /** Units to render labels */
   units: 'm' | 'ft',
@@ -58,10 +64,20 @@ type ZarMeasureViewProps = {
    */
   intersectDistance: number,
 
-  /** Turns on/off torch (flash), if available.
+  /**
+   * Turns on/off torch (flash), if available.
+   *
    * default: false
    */
   torchOn: boolean,
+
+  /**
+   * Pauses the session.
+   *
+   * Note: Session is paused automatically on interruptions, so this is likely unneeded.
+   *
+   */
+  paused: boolean,
 
   /**
    * Callback fired when authorization has changed
@@ -134,12 +150,10 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     androidCameraPermissionOptions: androidCameraPermissionOptions,
     pendingAuthorizationView: <SafeAreaView><Text>Loading...</Text></SafeAreaView>,
     notAuthorizedView: <SafeAreaView><Text>Not Authorized</Text></SafeAreaView>,
-    debugMode: false,
     units: 'm',
     minDistanceCamera: 0.05,
     maxDistanceCamera: 5,
     intersectDistance: 0.1,
-    torchOn: false,
     onCameraStatusChange: dummy,
     onARStatusChange: dummy,
     onMeasuringStatusChange: dummy,
