@@ -157,8 +157,14 @@ type MeasurementLine2D = {
  * TODO: Review if these positions are correct
  */
 type ARPlane = {
+  // plane ID that may be used to perform other operations, not necessarily unique (up to ARKit)
+  // as planes change constantly, the plane associated to this ID may live only for a short period of time.
+  id: string,
+
+  // x, y, z represent the plane's top-left vertex in the AR world
   x: number,
   y: number,
+  z: number,
   width: number,
   height: number,
   vertical: boolean, // true if vertical, false if horizontal plane
@@ -272,6 +278,23 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
   }
 
   /**
+   * Adds measurements to a detected plane and returns all measurement lines and plane info.
+   *
+   * id: if empty, performs a hit test against the current node,
+   * otherwise, attempts to add measurements to the given plane ID
+   *
+   * left, top, right, bottom: if to include a measurement to that edge or not
+   */
+  async addPlane(id='', left=true, top=true, right=true, bottom=true)
+   : {added: boolean, error: string, plane: ARPlane, measurements: [MeasurementLine]} {
+    const handle = findNodeHandle(this._ref.current);
+    if(handle){
+      return await ZarMeasureModule.addPlane(handle, id, left, top, right, bottom);
+    }
+    return {error: "View not available", added: false};
+  }
+
+  /**
    * Returns all existing measurements on screen
    */
   async getMeasurements() : [MeasurementLine] {
@@ -312,6 +335,8 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
   /**
    * Saves an USDZ file (.usdz) to the given path, or resolvves with {error: string}
    * path must include full path, name, and usdz extension.
+   *
+   * Note: not supported with geometry mode: unknown crash from Apple source code.
    *
    */
   async saveToFile(path) : {error: string} {

@@ -29,15 +29,15 @@ public typealias JSARPlane = Dictionary<String, Any>
 
 @available(iOS 13, *)
 class MeasurementGroup {
-    let id : String
+    var id : String
     var node1 : SphereNode
     var node2 : SphereNode
     var line : LineNode
     var text : TextNode
     var distance : Float
     
-    init(_ id:String, _ node1:SphereNode, _ node2:SphereNode, _ line:LineNode, _ text:TextNode, _ distance:CGFloat){
-        self.id = id
+    init(_ node1:SphereNode, _ node2:SphereNode, _ line:LineNode, _ text:TextNode, _ distance:CGFloat){
+        self.id = UUID().uuidString
         self.node1 = node1
         self.node2 = node2
         self.line = line

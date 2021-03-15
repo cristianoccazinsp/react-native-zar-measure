@@ -17,6 +17,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
         return true
     }
     
+    
     @objc
     override func constantsToExport() -> [AnyHashable : Any]! {
         if #available(iOS 13, *) {
@@ -49,6 +50,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
         }
     }
     
+    
     override func view() -> UIView! {
         if #available(iOS 13, *) {
             return ZarMeasureView()
@@ -57,6 +59,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
         }
     }
   
+    
     @objc
     func clear(_ node:NSNumber, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
@@ -76,6 +79,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
             resolve(nil)
         }
     }
+    
     
     @objc
     func clearCurrent(_ node:NSNumber, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
@@ -97,6 +101,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
         }
     }
     
+    
     @objc
     func removeLast(_ node:NSNumber, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
@@ -117,6 +122,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
         }
     }
     
+    
     @objc
     func removeMeasurement(_ node:NSNumber, nodeId nid:String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
@@ -136,6 +142,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
         }
     }
     
+    
     @objc
     func editMeasurement(_ node:NSNumber, nodeId nid:String, nodeText text:String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
@@ -154,6 +161,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
             resolve(nil)
         }
     }
+    
     
     @objc
     func addPoint(_ node:NSNumber, setCurrent current : Bool, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
@@ -182,8 +190,36 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
         }
     }
     
+    
     @objc
-    func getMeasurements(_ node:NSNumber,resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    func addPlane(_ node:NSNumber, planeId:String, left:Bool, top:Bool, right:Bool, bottom:Bool, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    {
+        if #available(iOS 13, *) {
+            DispatchQueue.main.async { [weak self] in
+                
+                guard let view = self?.bridge.uiManager.view(forReactTag: node) as? ZarMeasureView else {
+                    resolve(["added": false, "error": "Invalid View Tag"])
+                    return;
+                }
+                
+                let (err, measurements, plane) = view.addPlane(planeId, left, top, right, bottom)
+                
+                if(err == nil){
+                    resolve(["added": true, "error": nil, "measurements": measurements, "plane": plane])
+                }
+                else{
+                    resolve(["added": false, "error": err!])
+                }
+            }
+        }
+        else{
+            resolve(["added": false, "error": "Not supported"])
+        }
+    }
+    
+    
+    @objc
+    func getMeasurements(_ node:NSNumber, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 13, *) {
             DispatchQueue.main.async { [weak self] in
@@ -200,6 +236,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
             resolve([])
         }
     }
+    
     
     @objc
     func getPlanes(_ node:NSNumber, minArea area: NSNumber, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
@@ -219,6 +256,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
             resolve([])
         }
     }
+    
     
     @objc
     func takePicture(_ node:NSNumber, imagePath path: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
@@ -313,6 +351,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
             reject("not_supported", "Not supported.]", nil);
         }
     }
+    
     
     // MARK: QuickLook delegate
     func numberOfPreviewItems(in controller: QLPreviewController) -> Int { return 1 }

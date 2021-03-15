@@ -301,7 +301,7 @@ import ARKit
             let newLine = LineNode(from: current.position, to: sphere.position, lineColor: self.textColor)
             newLine.setScale(sceneView: self.sceneView, in: newText)
            
-            let newMeasure = MeasurementGroup(getNextId(), current, sphere, newLine, newText, distance)
+            let newMeasure = MeasurementGroup(current, sphere, newLine, newText, distance)
             measurements.append(newMeasure)
             
             // add all objects to the scene
@@ -334,6 +334,104 @@ import ARKit
         }
         
     }
+    
+    
+    // Adds a new set of edges to a target plane, or currently focused node
+    // if ID is not given
+    // must be called on UI thread
+    func addPlane(_ id:String, _ left:Bool, _ top:Bool, _ right:Bool, _ bottom:Bool) -> (String?, [MeasurementLine], JSARPlane?)
+    {
+        defer {
+            // clear hit results on adding point so we refresh existing nodes
+            // due to some shapes needing to change
+            self.lastHitResult = (nil, nil)
+        }
+        
+        var plane : ARPlaneAnchor? = nil
+        
+        // if ID not given
+        if id.isEmpty {
+            let (er, resultx) = self.lastHitResult
+            
+            guard let result = resultx else {
+                return (er, [], nil)
+            }
+            
+            plane = result.anchor as? ARPlaneAnchor
+        }
+        
+        else{
+            // find anchor by ID
+            if let anchors = sceneView.session.currentFrame?.anchors {
+                for anchor in anchors {
+                    if let _plane = anchor as? ARPlaneAnchor{
+                        if _plane.getId() == id {
+                            plane = _plane
+                            break
+                        }
+                    }
+                }
+            }
+        }
+        
+        if let _plane = plane {
+            
+            var added : [MeasurementLine] = []
+            
+            func addNode (_ point1: SCNVector3, _ point2: SCNVector3) {
+                
+                let sphere1 = SphereNode(at: point1, color: self.nodeColor)
+                let sphere2 = SphereNode(at: point2, color: self.nodeColor)
+                let distance = point2.distance(to: point1)
+                
+                let text = TextNode(between: point1, and: point2, textLabel: self.getMeasureString(distance), textColor: self.nodeColor)
+                
+                let line = LineNode(from: point1, to: point2, lineColor: self.textColor)
+               
+                let newMeasure = MeasurementGroup(sphere1, sphere2, line, text, distance)
+                measurements.append(newMeasure)
+                
+                // call sacale funs
+                sphere1.setScale(sceneView: self.sceneView)
+                sphere2.setScale(sceneView: self.sceneView)
+                text.setScale(sceneView: self.sceneView)
+                line.setScale(sceneView: self.sceneView, in: text)
+                
+                // add all objects to the scene
+                self.rootNode.addChildNode(sphere1)
+                self.rootNode.addChildNode(sphere2)
+                self.rootNode.addChildNode(line)
+                self.rootNode.addChildNode(text)
+                
+                added.append(newMeasure.toDict())
+            }
+            
+            
+            let (topLeft, topRight, bottomLeft, bottomRight) = _plane.worldPoints()
+            
+            if left {
+                addNode(topLeft, bottomLeft)
+            }
+            
+            if top {
+                addNode(topLeft, topRight)
+            }
+            
+            if right {
+                addNode(topRight, bottomRight)
+            }
+            
+            if bottom {
+                addNode(bottomLeft, bottomRight)
+            }
+            
+            return (nil, added, _plane.toDict())
+        }
+        else {
+            return ("Plane not found.", [], nil)
+        }
+    }
+    
     
     // Takes a PNG picture of the scene.
     // Calls completion handler with a string if there was an error
@@ -414,39 +512,36 @@ import ARKit
         // use same flag for now
         takingPicture = true
         
-        DispatchQueue.global(qos: .background).async {
+        // temporary remove target nodes
+        
+        self.targetNode?.removeFromParentNode()
+        self.lineNode?.removeFromParentNode()
+        
+        let fileUrl = URL(fileURLWithPath: path)
+        
+        // it's unclear whether this method returns right away
+        // but it seems like it fires both callbacks and onyl returns once completed
+        let res = self.sceneView.scene.write(to: fileUrl, options: nil, delegate: nil){ (progress, error, obj) in
             
-            // temporary remove target nodes
-            
-            self.targetNode?.removeFromParentNode()
-            self.lineNode?.removeFromParentNode()
-            
-            let fileUrl = URL(fileURLWithPath: path)
-            
-            // it's unclear whether this method returns right away
-            // but it seems like it fires both callbacks and onyl returns once completed
-            let res = self.sceneView.scene.write(to: fileUrl, options: nil, delegate: nil){ (progress, error, obj) in
-                
-                //NSLog("Progress: \(progress) - \(String(describing: error)) \(obj)")
-            }
-            
-            // re add nodes back
-            if let t = self.targetNode {
-                self.rootNode.addChildNode(t)
-            }
-            if let t = self.lineNode {
-                self.rootNode.addChildNode(t)
-            }
-            
-            if(!res){
-                completion("Export failed: scene writing returned an error")
-            }
-            else{
-                completion(nil)
-            }
-            
-            self.takingPicture = false
+            //NSLog("Progress: \(progress) - \(String(describing: error)) \(obj)")
         }
+        
+        // re add nodes back
+        if let t = self.targetNode {
+            self.rootNode.addChildNode(t)
+        }
+        if let t = self.lineNode {
+            self.rootNode.addChildNode(t)
+        }
+        
+        if(!res){
+            completion("Export failed: scene writing returned an error")
+        }
+        else{
+            completion(nil)
+        }
+        
+        self.takingPicture = false
     }
     
 
@@ -477,7 +572,6 @@ import ARKit
     
     private var measurementLabel = UILabel() // general purpose message
     
-    private var nodeId = 1
     private var measurements: [MeasurementGroup] = []
     private var currentNode : SphereNode? = nil // to start a measurement
     private var lineNode : LineNode? = nil
@@ -921,6 +1015,7 @@ import ARKit
         sceneView.automaticallyUpdatesLighting = false
         sceneView.rendersCameraGrain = false
         //sceneView.debugOptions = [.showFeaturePoints]
+        //sceneView.debugOptions = [.showWorldOrigin]
         sceneView.showsStatistics = false
         sceneView.antialiasingMode = .multisampling2X
         
@@ -1026,12 +1121,6 @@ import ARKit
         }
     }
     
-    
-    private func getNextId() -> String {
-        let next = String(nodeId)
-        nodeId += 1
-        return next
-    }
     
     private func getMeasureString(_ value: CGFloat) -> String{
         var unitsStr = "m"
