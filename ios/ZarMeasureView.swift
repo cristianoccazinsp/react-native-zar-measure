@@ -296,16 +296,18 @@ import ARKit
         }
     }
     
-    func getPlanes(_ minArea: Float) -> [JSARPlane]{
+    func getPlanes(_ minArea: Float, _ alignment: String) -> [JSARPlane]{
         if let anchors = sceneView.session.currentFrame?.anchors {
             
             var res : [MeasurementLine] = []
+            let horizontal = alignment == "all" || alignment == "horizontal"
+            let vertical = alignment == "all" || alignment == "vertical"
             
             for anchor in anchors {
                 // let node = sceneView.node(for: anchor)
                 if let planeAnchor = anchor as? ARPlaneAnchor {
-                    if planeAnchor.area() >= minArea {
-                        res.append(planeAnchor.toDict())
+                    if planeAnchor.area() >= minArea && (planeAnchor.alignment == .horizontal && horizontal || planeAnchor.alignment == .vertical && vertical) {
+                            res.append(planeAnchor.toDict())
                     }
                 }
             }

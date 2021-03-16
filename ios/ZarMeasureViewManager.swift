@@ -239,7 +239,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
     
     
     @objc
-    func getPlanes(_ node:NSNumber, minArea area: NSNumber, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    func getPlanes(_ node:NSNumber, minArea area: NSNumber, alignment: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 13, *) {
             DispatchQueue.main.async { [weak self] in
@@ -249,7 +249,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
                     return;
                 }
                 
-                resolve(view.getPlanes(Float(truncating: area)))
+                resolve(view.getPlanes(Float(truncating: area), alignment))
             }
         }
         else{

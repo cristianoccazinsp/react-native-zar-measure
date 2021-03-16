@@ -327,11 +327,12 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    * Returns existing rectangular (rough) planes currently detected in the world.
    *
    * minArea: excludes planes that are not at least this value big (m)
+   * alignment: all | vertical | horizontal to filter by alignment
    */
-  async getPlanes(minArea=0) : [ARPlane] {
+  async getPlanes(minArea=0, alignment='all') : [ARPlane] {
     const handle = findNodeHandle(this._ref.current);
     if(handle){
-      return await ZarMeasureModule.getPlanes(handle, minArea);
+      return await ZarMeasureModule.getPlanes(handle, minArea, alignment);
     }
     return [];
   }
