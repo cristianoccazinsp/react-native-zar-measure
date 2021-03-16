@@ -144,6 +144,26 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
     
     
     @objc
+    func removePlane(_ node:NSNumber, planeId:String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    {
+        if #available(iOS 13, *) {
+            DispatchQueue.main.async { [weak self] in
+                
+                guard let view = self?.bridge.uiManager.view(forReactTag: node) as? ZarMeasureView else {
+                    resolve([])
+                    return;
+                }
+                
+                resolve(view.removePlane(planeId))
+            }
+        }
+        else{
+            resolve([])
+        }
+    }
+    
+    
+    @objc
     func editMeasurement(_ node:NSNumber, nodeId:String, text:String, clearPlane: Bool, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 13, *) {

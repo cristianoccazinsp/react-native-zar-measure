@@ -116,6 +116,7 @@ import ARKit
     
     @objc public var showHitPlane = false;
     @objc public var showHitGeometry = false;
+    @objc public var showHitMesh = false;
     
     @objc public var torchOn = false {
         willSet {
@@ -214,11 +215,25 @@ import ARKit
             return
         }
         
-        if clear == "all" {
+        if clear == "all" || clear == "full" {
             
-            if let last = measurements.last{
+            if let last = measurements.last {
                 last.removeNodes()
                 measurements.removeLast()
+                
+                // if full and plane ID, remove all measurements of the plane
+                let planeId = last.planeId
+                
+                if !planeId.isEmpty && clear == "full" {
+                    for (i, m) in measurements.enumerated().reversed() {
+                        // assign the first plane id and start removing from there.
+                        if m.planeId == planeId {
+                            m.removeNodes()
+                            measurements.remove(at: i)
+                        }
+                    }
+                }
+                
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
             }
         }
@@ -258,14 +273,30 @@ import ARKit
         
         let node = measurements[idx]
         measurements.remove(at: idx)
-        
-        node.line.removeFromParentNode()
-        node.node1.removeFromParentNode()
-        node.node2.removeFromParentNode()
-        node.text.removeFromParentNode()
+        node.removeNodes()
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         
         return node.toDict()
+    }
+    
+    func removePlane(_ planeId:String) -> [MeasurementLine]
+    {
+        var deleted : [MeasurementLine] = []
+        
+        for (i, m) in measurements.enumerated().reversed() {
+            // assign the first plane id and start removing from there.
+            if m.planeId == planeId {
+                m.removeNodes()
+                measurements.remove(at: i)
+                deleted.append(m.toDict())
+            }
+        }
+        
+        if deleted.count > 0 {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        }
+        
+        return deleted
     }
     
     func editMeasurement(_ id:String, _ text:String, _ clearPlane:Bool) -> MeasurementLine?
@@ -656,6 +687,7 @@ import ARKit
     private var targetNode: TargetNode? = nil
     private var hitPlane: AnchorPlaneNode? = nil
     private var hitGeometry: AnchorGeometryNode? = nil
+    private var hitMesh: SCNNode? = nil // will need to be casted when used
     
     private var arReady : Bool = false
     private var arStatus : String = "off"
@@ -877,6 +909,8 @@ import ARKit
                 self.hitPlane = nil
                 self.hitGeometry?.removeFromParentNode()
                 self.hitGeometry = nil
+                self.hitMesh?.removeFromParentNode()
+                self.hitMesh = nil
             }
         }
         
@@ -935,6 +969,8 @@ import ARKit
             self.hitPlane = nil
             self.hitGeometry?.removeFromParentNode()
             self.hitGeometry = nil
+            self.hitMesh?.removeFromParentNode()
+            self.hitMesh = nil
             
             self.measurementLabel.text = err != nil ? err : ""
             
@@ -1012,6 +1048,20 @@ import ARKit
                         
                         // add it not to root node, but rather the anchor's node
                         node.addChildNode(self.hitGeometry!)
+                    }
+                }
+                
+                // show/hide hit plane if configured
+                
+                if self.showHitMesh && !closeNode {
+                    if #available(iOS 13.4, *){
+                        if let anchor = result?.anchor as? ARMeshAnchor, let node = self.sceneView.node(for: anchor) {
+                            
+                            self.hitMesh = AnchorMeshNode(anchor: anchor)
+                            
+                            // add it not to root node, but rather the anchor's node
+                            node.addChildNode(self.hitMesh!)
+                        }
                     }
                 }
                 
@@ -1271,20 +1321,12 @@ import ARKit
         }
         
         let cameraPos = SCNVector3.positionFrom(matrix: cameraTransform)
+        var hitTest : [ARRaycastResult]
         
-        // try highest presicion plane first
-        guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneGeometry, alignment: .any) else{
-            
-            // this should never happen
-            return ("Detection failed.", nil)
-        }
-        
-        var hitTest = sceneView.session.raycast(query)
-        
-        // if hit test count is 0, try with an estimated and then an infinite plane
-        // this matches more the native app, and prevents us from getting lots of error messages
-        if hitTest.count == 0 {
-            guard let query = sceneView.raycastQuery(from: location, allowing: .estimatedPlane, alignment: .any) else{
+        // standard case, where we hit against planes
+        if !showHitMesh {
+            // try highest presicion plane first
+            guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneGeometry, alignment: .any) else{
                 
                 // this should never happen
                 return ("Detection failed.", nil)
@@ -1292,15 +1334,38 @@ import ARKit
             
             hitTest = sceneView.session.raycast(query)
             
+            // if hit test count is 0, try with an estimated and then an infinite plane
+            // this matches more the native app, and prevents us from getting lots of error messages
             if hitTest.count == 0 {
-                guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneInfinite, alignment: .any) else{
+                guard let query = sceneView.raycastQuery(from: location, allowing: .estimatedPlane, alignment: .any) else{
                     
                     // this should never happen
                     return ("Detection failed.", nil)
                 }
                 
                 hitTest = sceneView.session.raycast(query)
+                
+                if hitTest.count == 0 {
+                    guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneInfinite, alignment: .any) else{
+                        
+                        // this should never happen
+                        return ("Detection failed.", nil)
+                    }
+                    
+                    hitTest = sceneView.session.raycast(query)
+                }
             }
+        }
+        
+        // if we have set to hit meshes, use estimated planes only
+        else {
+            guard let query = sceneView.raycastQuery(from: location, allowing: .estimatedPlane, alignment: .any) else{
+                
+                // this should never happen
+                return ("Detection failed.", nil)
+            }
+            
+            hitTest = sceneView.session.raycast(query)
         }
         
             

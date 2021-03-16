@@ -28,11 +28,15 @@ type ZarMeasureViewProps = {
 
   /**
    * if set to true, draws planes in the scene. These are raw estimates of shapes
+   *
+   * default: false
   */
   showPlanes: boolean,
 
   /**
    * if set to true, draws geometry in the scene. These are higher accuracy shapes
+   *
+   * default: false
   */
   showGeometry: boolean,
 
@@ -40,18 +44,41 @@ type ZarMeasureViewProps = {
    * if set to true and supported, draws high accuracy meshes in the scene.
    *
    * Check Constants.MESH_SUPPORTED to see if meshes are supported.
+   *
+   * default: false
   */
   showMeshes: boolean,
 
   /**
    * If true, will draw the plane of the current hit target result
+   *
+   * default: false
    */
   showHitPlane: boolean,
 
   /**
    * If true, will draw the geometry of the current hit target result
+   *
+   * default: false
    */
   showHitGeometry: boolean,
+
+   /**
+   * If true, will draw the mesh of the current hit target result
+   *
+   * NOTE: Setting this, will change the way hit testing works from planes to mesh / estimated planes.
+   * so regular geometry/planes will rarely hit.
+   *
+   * Setting this to true and any plane/geometry at the same time would be an error.
+   *
+   * Check Constants.MESH_SUPPORTED to see if meshes are supported.
+   *
+   * NOTE: CURRENTLY NOT WORKING: ARKit does not return the hit anchor on raycasts right now.
+   * However, it is a good alternative to use
+   *
+   * default: false
+   */
+  showHitMesh: boolean,
 
   /** Units to render labels */
   units: 'm' | 'ft',
@@ -244,8 +271,9 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    * Removes the last added measurement, if any, or removes the previously
    * added partial node (stops current measurement).
    *
-   * clear: "all" | "points" | "planes"
+   * clear: "all" | "full" | "points" | "planes"
    * if all, clears any previous measurement line
+   * if full, clears any previous measurement line, or full planes,
    * if points, only clears previous measurement lines added with addPoint, planes are excluded
    * if planes: only clears the previously added plane (all measurements)
    *
@@ -259,7 +287,7 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
   }
 
   /**
-   * Removes a measurmenet by index and returns its data or null if none
+   * Removes a measurement by id and returns its data or null if none
    *
    * Returns MeasurementLine or null if nothing was removed
    */
@@ -267,6 +295,18 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     const handle = findNodeHandle(this._ref.current);
     if(handle){
       return await ZarMeasureModule.removeMeasurement(handle, id);
+    }
+  }
+
+  /**
+   * Removes all measurements with the given planeId
+   *
+   * Returns [MeasurementLine] for each removed line
+   */
+  async removePlane(planeId) : [MeasurementLine] {
+    const handle = findNodeHandle(this._ref.current);
+    if(handle){
+      return await ZarMeasureModule.removePlane(handle, planeId);
     }
   }
 

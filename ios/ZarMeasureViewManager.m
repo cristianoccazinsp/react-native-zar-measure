@@ -17,6 +17,7 @@ RCT_EXPORT_VIEW_PROPERTY(showGeometry, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(showMeshes, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(showHitPlane, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(showHitGeometry, BOOL)
+RCT_EXPORT_VIEW_PROPERTY(showHitMesh, BOOL)
 
 RCT_EXPORT_VIEW_PROPERTY(onARStatusChange, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onMeasuringStatusChange, RCTDirectEventBlock)
@@ -35,6 +36,9 @@ RCT_EXTERN_METHOD(removeLast: (nonnull NSNumber *)node clear:(nonnull NSString *
 
 
 RCT_EXTERN_METHOD(removeMeasurement: (nonnull NSNumber *)node nodeId:(nonnull NSString *)nodeId resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
+
+
+RCT_EXTERN_METHOD(removePlane: (nonnull NSNumber *)node planeId:(nonnull NSString *)planeId resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
 
 
 RCT_EXTERN_METHOD(editMeasurement: (nonnull NSNumber *)node nodeId:(nonnull NSString *)nodeId text:(nonnull NSString *)text clearPlane:(BOOL)clearPlane resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
