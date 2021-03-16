@@ -1172,7 +1172,6 @@ import ARKit
         // Main view setup
         configuration.planeDetection = [.vertical, .horizontal]
         configuration.worldAlignment = .gravity
-        configuration.isLightEstimationEnabled = false
         
         // this should technically use Lidar sensors and greatly
         // improve accuracy
@@ -1183,7 +1182,6 @@ import ARKit
         }
         
         sceneView.preferredFramesPerSecond = 30
-        sceneView.automaticallyUpdatesLighting = false
         sceneView.rendersCameraGrain = false
         //sceneView.debugOptions = [.showFeaturePoints]
         //sceneView.debugOptions = [.showWorldOrigin]
