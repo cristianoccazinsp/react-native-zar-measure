@@ -304,12 +304,15 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    *
    * left, top, right, bottom: flag to automatically add a measurment line to that edge or not.
    * Pass everything as false to just perform plane detection and get the plane ID.
+   *
+   * setId: sets the plane ID to the added measurements so they can be referenced later. Set to false
+   * to skip it from calls that affect plane measurements.
    */
-  async addPlane(id='', left=true, top=true, right=true, bottom=true)
+  async addPlane(id='', left=true, top=true, right=true, bottom=true, setId=true)
    : {error: string, plane: ARPlane, measurements: [MeasurementLine]} {
     const handle = findNodeHandle(this._ref.current);
     if(handle){
-      return await ZarMeasureModule.addPlane(handle, id, left, top, right, bottom);
+      return await ZarMeasureModule.addPlane(handle, id, left, top, right, bottom, setId);
     }
     return {error: "View not available"};
   }
@@ -328,13 +331,13 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
   /**
    * Returns existing rectangular (rough) planes currently detected in the world.
    *
-   * minArea: excludes planes that are not at least this value big (m)
+   * minDimension: excludes planes whose dimensions (width or height) are less than this value (m)
    * alignment: all | vertical | horizontal to filter by alignment
    */
-  async getPlanes(minArea=0, alignment='all') : [ARPlane] {
+  async getPlanes(minDimension=0, alignment='all') : [ARPlane] {
     const handle = findNodeHandle(this._ref.current);
     if(handle){
-      return await ZarMeasureModule.getPlanes(handle, minArea, alignment);
+      return await ZarMeasureModule.getPlanes(handle, minDimension, alignment);
     }
     return [];
   }

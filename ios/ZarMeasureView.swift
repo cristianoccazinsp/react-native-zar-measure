@@ -300,7 +300,7 @@ import ARKit
         }
     }
     
-    func getPlanes(_ minArea: Float, _ alignment: String) -> [JSARPlane]{
+    func getPlanes(_ minDimension: Float, _ alignment: String) -> [JSARPlane]{
         if let anchors = sceneView.session.currentFrame?.anchors {
             
             var res : [MeasurementLine] = []
@@ -310,7 +310,7 @@ import ARKit
             for anchor in anchors {
                 // let node = sceneView.node(for: anchor)
                 if let planeAnchor = anchor as? ARPlaneAnchor {
-                    if planeAnchor.area() >= minArea && (planeAnchor.alignment == .horizontal && horizontal || planeAnchor.alignment == .vertical && vertical) {
+                    if planeAnchor.extent.x >= minDimension && planeAnchor.extent.z >= minDimension && (planeAnchor.alignment == .horizontal && horizontal || planeAnchor.alignment == .vertical && vertical) {
                             res.append(planeAnchor.toDict())
                     }
                 }
@@ -406,7 +406,7 @@ import ARKit
     // Adds a new set of edges to a target plane, or currently focused node
     // if ID is not given
     // must be called on UI thread
-    func addPlane(_ id:String, _ left:Bool, _ top:Bool, _ right:Bool, _ bottom:Bool) -> (String?, [MeasurementLine], JSARPlane?)
+    func addPlane(_ id:String, _ left:Bool, _ top:Bool, _ right:Bool, _ bottom:Bool, _ setId:Bool) -> (String?, [MeasurementLine], JSARPlane?)
     {
         defer {
             // clear hit results on adding point so we refresh existing nodes
@@ -455,7 +455,12 @@ import ARKit
                 
                 let line = LineNode(from: point1, to: point2, lineColor: self.textColor)
                
-                let newMeasure = MeasurementGroup(planeId, sphere1, sphere2, line, text, distance)
+                let newMeasure = MeasurementGroup(sphere1, sphere2, line, text, distance)
+                
+                if setId {
+                    newMeasure.planeId = planeId
+                }
+                
                 measurements.append(newMeasure)
                 
                 // call sacale funs

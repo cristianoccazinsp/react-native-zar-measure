@@ -41,13 +41,13 @@ RCT_EXTERN_METHOD(editMeasurement: (nonnull NSNumber *)node nodeId:(nonnull NSSt
 RCT_EXTERN_METHOD(addPoint: (nonnull NSNumber *)node setCurrent:(BOOL)setCurrent resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
 
 
-RCT_EXTERN_METHOD(addPlane: (nonnull NSNumber *)node planeId:(nonnull NSString *)planeId left:(BOOL)left top:(BOOL)top right:(BOOL)right bottom:(BOOL)bottom resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
+RCT_EXTERN_METHOD(addPlane: (nonnull NSNumber *)node planeId:(nonnull NSString *)planeId left:(BOOL)left top:(BOOL)top right:(BOOL)right bottom:(BOOL)bottom setId:(BOOL)setId resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
 
 
 RCT_EXTERN_METHOD(getMeasurements: (nonnull NSNumber *)node resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
 
 
-RCT_EXTERN_METHOD(getPlanes: (nonnull NSNumber *)node minArea:(nonnull NSNumber *)minArea alignment:(nonnull NSString *)alignment resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
+RCT_EXTERN_METHOD(getPlanes: (nonnull NSNumber *)node minDimension:(nonnull NSNumber *)minDimension alignment:(nonnull NSString *)alignment resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
 
 
 RCT_EXTERN_METHOD(takePicture: (nonnull NSNumber *)node imagePath:(NSString*)imagePath resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)

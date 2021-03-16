@@ -192,7 +192,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
     
     
     @objc
-    func addPlane(_ node:NSNumber, planeId:String, left:Bool, top:Bool, right:Bool, bottom:Bool, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    func addPlane(_ node:NSNumber, planeId:String, left:Bool, top:Bool, right:Bool, bottom:Bool, setId:Bool, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 13, *) {
             DispatchQueue.main.async { [weak self] in
@@ -202,7 +202,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
                     return;
                 }
                 
-                let (err, measurements, plane) = view.addPlane(planeId, left, top, right, bottom)
+                let (err, measurements, plane) = view.addPlane(planeId, left, top, right, bottom, setId)
                 
                 if(err == nil){
                     resolve(["error": nil, "measurements": measurements, "plane": plane])
@@ -239,7 +239,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
     
     
     @objc
-    func getPlanes(_ node:NSNumber, minArea: NSNumber, alignment: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    func getPlanes(_ node:NSNumber, minDimension: NSNumber, alignment: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 13, *) {
             DispatchQueue.main.async { [weak self] in
@@ -249,7 +249,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
                     return;
                 }
                 
-                resolve(view.getPlanes(Float(truncating: minArea), alignment))
+                resolve(view.getPlanes(Float(truncating: minDimension), alignment))
             }
         }
         else{
