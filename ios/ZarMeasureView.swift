@@ -1058,55 +1058,59 @@ import ARKit
         
         
         // First try to hit against our text nodes
-        
-        let result = sceneView.hitTest(touchLocation, options: [SCNHitTestOption.searchMode: 1, SCNHitTestOption.rootNode: rootNode])
-        
-        // search all results to see if we have a text node in one of our measurements
-        // or ultimately a plane node
-        for r in result {
+        // only if text tap was defined
+        if onTextTap != nil {
+            let result = sceneView.hitTest(touchLocation, options: [SCNHitTestOption.searchMode: 1, SCNHitTestOption.rootNode: rootNode])
             
-            // we may get a hit on the plane node, or text node
-            let textNode: TextNode?
-            
-            if r.node.name == "textnode" {
-                textNode = r.node as? TextNode
-            }
-            else if r.node.parent?.name == "textnode"{
-                textNode = r.node.parent as? TextNode
-            }
-            else {
-                continue
-            }
-            
-            if let _textNode = textNode {
-                if let measurement = measurements.first(where: {_textNode.id == $0.id}){
-                    self.onTextTap?(["measurement": measurement.toDict(), "location": ["x": touchLocation.x, "y": touchLocation.y]])
-                    
-                    if self.onTextTap != nil {
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            // search all results to see if we have a text node in one of our measurements
+            // or ultimately a plane node
+            for r in result {
+                
+                // we may get a hit on the plane node, or text node
+                let textNode: TextNode?
+                
+                if r.node.name == "textnode" {
+                    textNode = r.node as? TextNode
+                }
+                else if r.node.parent?.name == "textnode"{
+                    textNode = r.node.parent as? TextNode
+                }
+                else {
+                    continue
+                }
+                
+                if let _textNode = textNode {
+                    if let measurement = measurements.first(where: {_textNode.id == $0.id}){
+                        onTextTap?(["measurement": measurement.toDict(), "location": ["x": touchLocation.x, "y": touchLocation.y]])
+                        
+                        if onTextTap != nil {
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        }
+                        
+                        return
                     }
-                    
-                    return
                 }
             }
         }
         
         // if we got here, no hits, do a raycast and try to get a plane anchor
-        // Only hit against planes, no estimations
-        guard let query = sceneView.raycastQuery(from: touchLocation, allowing: .existingPlaneGeometry, alignment: .any) else{
-            
-            // this should never happen
-            return
-        }
-        
-        if let first = sceneView.session.raycast(query).first, let anchor = first.anchor as? ARPlaneAnchor {
-            
-            self.onPlaneTap?(["plane": anchor.toDict(), "location": ["x": touchLocation.x, "y": touchLocation.y]])
-            
-            if self.onPlaneTap != nil {
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        // Only hit against planes, no estimations, and if onPlaneTap is defined
+        if onPlaneTap != nil {
+            guard let query = sceneView.raycastQuery(from: touchLocation, allowing: .existingPlaneGeometry, alignment: .any) else{
+                
+                // this should never happen
+                return
             }
-            return
+            
+            if let first = sceneView.session.raycast(query).first, let anchor = first.anchor as? ARPlaneAnchor {
+                
+                onPlaneTap?(["plane": anchor.toDict(), "location": ["x": touchLocation.x, "y": touchLocation.y]])
+                
+                if onPlaneTap != nil {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+                return
+            }
         }
     }
     
