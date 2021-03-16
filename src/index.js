@@ -43,6 +43,16 @@ type ZarMeasureViewProps = {
   */
   showMeshes: boolean,
 
+  /**
+   * If true, will draw the plane of the current hit target result
+   */
+  showHitPlane: boolean,
+
+  /**
+   * If true, will draw the geometry of the current hit target result
+   */
+  showHitGeometry: boolean,
+
   /** Units to render labels */
   units: 'm' | 'ft',
 

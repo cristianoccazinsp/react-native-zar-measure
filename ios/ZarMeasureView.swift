@@ -36,8 +36,6 @@ import ARKit
     @objc public var showPlanes = false {
         willSet {
             if showPlanes != newValue {
-                // TODO: Do we need to run this on the UI thread?
-                
                 if !newValue {
                     // recursively loop through all nodes and remove our anchor planes
                     sceneView.scene.rootNode.enumerateChildNodes { (node, stop) in
@@ -64,8 +62,6 @@ import ARKit
     @objc public var showGeometry = false {
         willSet {
             if showGeometry != newValue {
-                // TODO: Do we need to run this on the UI thread?
-                
                 if !newValue {
                     // recursively loop through all nodes and remove our anchor geometry meshes
                     sceneView.scene.rootNode.enumerateChildNodes { (node, stop) in
@@ -118,6 +114,8 @@ import ARKit
         }
     }
     
+    @objc public var showHitPlane = false;
+    @objc public var showHitGeometry = false;
     
     @objc public var torchOn = false {
         willSet {
@@ -656,6 +654,8 @@ import ARKit
     private var currentNode : SphereNode? = nil // to start a measurement
     private var lineNode : LineNode? = nil
     private var targetNode: TargetNode? = nil
+    private var hitPlane: AnchorPlaneNode? = nil
+    private var hitGeometry: AnchorGeometryNode? = nil
     
     private var arReady : Bool = false
     private var arStatus : String = "off"
@@ -805,27 +805,33 @@ import ARKit
         
         // Update only anchors and nodes set up by `renderer(_:didAdd:for:)`.
         if(showPlanes){
-            if let planeAnchor = anchor as? ARPlaneAnchor,
-               let plane = node.childNodes.first as? AnchorPlaneNode {
-                
-                plane.updatePlane(planeAnchor)
+            if let planeAnchor = anchor as? ARPlaneAnchor {
+                for child in node.childNodes {
+                    if let plane = child as? AnchorPlaneNode {
+                        plane.updatePlane(planeAnchor)
+                    }
+                }
             }
         }
         
         if(showGeometry){
-            if let planeAnchor = anchor as? ARPlaneAnchor,
-               let mesh = node.childNodes.first as? AnchorGeometryNode {
-                
-                mesh.updateMesh(planeAnchor)
+            if let planeAnchor = anchor as? ARPlaneAnchor{
+                for child in node.childNodes {
+                    if let mesh = child.childNodes.first as? AnchorGeometryNode {
+                        mesh.updateMesh(planeAnchor)
+                    }
+                }
             }
         }
         
         if(showMeshes){
             if #available(iOS 13.4, *){
-                if let meshAnchor = anchor as? ARMeshAnchor,
-                   let mesh = node.childNodes.first as? AnchorMeshNode {
-                    
-                    mesh.updateMesh(meshAnchor)
+                if let meshAnchor = anchor as? ARMeshAnchor {
+                    for child in node.childNodes {
+                        if let mesh = child.childNodes.first as? AnchorMeshNode {
+                            mesh.updateMesh(meshAnchor)
+                        }
+                    }
                 }
             }
         }
@@ -867,6 +873,10 @@ import ARKit
                 self.targetNode = nil
                 self.currentNode?.removeFromParentNode()
                 self.currentNode = nil
+                self.hitPlane?.removeFromParentNode()
+                self.hitPlane = nil
+                self.hitGeometry?.removeFromParentNode()
+                self.hitGeometry = nil
             }
         }
         
@@ -921,6 +931,11 @@ import ARKit
             // and set/clear label
             self.lineNode?.removeFromParentNode()
             self.lineNode = nil
+            self.hitPlane?.removeFromParentNode()
+            self.hitPlane = nil
+            self.hitGeometry?.removeFromParentNode()
+            self.hitGeometry = nil
+            
             self.measurementLabel.text = err != nil ? err : ""
             
             if let position = result?.position, let closeNode = result?.isCloseNode {
@@ -976,6 +991,28 @@ import ARKit
                     self.targetNode?.setDonutScale(sceneView: self.sceneView, hitResult: result!, animation: self.donutScaleTimeout)
                     
                     self.donutLastScaled = time
+                }
+                
+                // show/hide hit plane if configured
+                if self.showHitPlane && !closeNode {
+                    if let anchor = result?.anchor as? ARPlaneAnchor, let node = self.sceneView.node(for: anchor) {
+                        
+                        self.hitPlane = AnchorPlaneNode(anchor: anchor)
+                        
+                        // add it not to root node, but rather the anchor's node
+                        node.addChildNode(self.hitPlane!)
+                    }
+                }
+                
+                // show/hide hit plane if configured
+                if self.showHitGeometry && !closeNode {
+                    if let anchor = result?.anchor as? ARPlaneAnchor, let node = self.sceneView.node(for: anchor) {
+                        
+                        self.hitGeometry = AnchorGeometryNode(anchor: anchor, in: self.sceneView)
+                        
+                        // add it not to root node, but rather the anchor's node
+                        node.addChildNode(self.hitGeometry!)
+                    }
                 }
                 
                 // vibration on close changes
