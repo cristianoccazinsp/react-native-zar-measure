@@ -587,29 +587,36 @@ import ARKit
         
         let fileUrl = URL(fileURLWithPath: path)
         
-        // it's unclear whether this method returns right away
-        // but it seems like it fires both callbacks and onyl returns once completed
-        let res = self.sceneView.scene.write(to: fileUrl, options: nil, delegate: nil){ (progress, error, obj) in
+        // heavy operation, run in background
+        DispatchQueue.global(qos: .background).async {
             
-            //NSLog("Progress: \(progress) - \(String(describing: error)) \(obj)")
+            // it's unclear whether this method returns right away
+            // but it seems like it fires both callbacks and onyl returns once completed
+            let res = self.sceneView.scene.write(to: fileUrl, options: nil, delegate: nil){ (progress, error, obj) in
+                //NSLog("Progress: \(progress) - \(String(describing: error)) \(obj)")
+            }
+            
+            // back to main thread
+            DispatchQueue.main.async {
+                
+                // re add nodes back
+                if let t = self.targetNode {
+                    self.rootNode.addChildNode(t)
+                }
+                if let t = self.lineNode {
+                    self.rootNode.addChildNode(t)
+                }
+                
+                if(!res){
+                    completion("Export failed: scene writing returned an error")
+                }
+                else{
+                    completion(nil)
+                }
+                
+                self.takingPicture = false
+            }
         }
-        
-        // re add nodes back
-        if let t = self.targetNode {
-            self.rootNode.addChildNode(t)
-        }
-        if let t = self.lineNode {
-            self.rootNode.addChildNode(t)
-        }
-        
-        if(!res){
-            completion("Export failed: scene writing returned an error")
-        }
-        else{
-            completion(nil)
-        }
-        
-        self.takingPicture = false
     }
     
 
