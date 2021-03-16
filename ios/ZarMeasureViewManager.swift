@@ -61,7 +61,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
   
     
     @objc
-    func clear(_ node:NSNumber, clear: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    func clear(_ node:NSNumber, clear: String, vibrate: Bool, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 13, *) {
             DispatchQueue.main.async { [weak self] in
@@ -71,7 +71,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
                     return;
                 }
                 
-                view.clear(clear)
+                view.clear(clear, vibrate)
                 resolve(nil)
             }
         }
@@ -103,7 +103,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
     
     
     @objc
-    func removeLast(_ node:NSNumber, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    func removeLast(_ node:NSNumber, clear: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 13, *) {
             DispatchQueue.main.async { [weak self] in
@@ -113,7 +113,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
                     return;
                 }
                 
-                view.removeLast()
+                view.removeLast(clear)
                 resolve(nil)
             }
         }
@@ -170,23 +170,23 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
             DispatchQueue.main.async { [weak self] in
                 
                 guard let view = self?.bridge.uiManager.view(forReactTag: node) as? ZarMeasureView else {
-                    resolve(["added": false, "error": "Invalid View Tag"])
+                    resolve(["error": "Invalid View Tag"])
                     return;
                 }
                 
                 let (err, measurement, cameraDistance) = view.addPoint(current)
                 
                 if(err == nil){
-                    resolve(["added": true, "error": nil, "measurement": measurement,
+                    resolve(["error": nil, "measurement": measurement,
                              "cameraDistance": cameraDistance])
                 }
                 else{
-                    resolve(["added": false, "error": err!])
+                    resolve(["error": err!])
                 }
             }
         }
         else{
-            resolve(["added": false, "error": "Not supported"])
+            resolve(["error": "Not supported"])
         }
     }
     
@@ -198,22 +198,22 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
             DispatchQueue.main.async { [weak self] in
                 
                 guard let view = self?.bridge.uiManager.view(forReactTag: node) as? ZarMeasureView else {
-                    resolve(["added": false, "error": "Invalid View Tag"])
+                    resolve(["error": "Invalid View Tag"])
                     return;
                 }
                 
                 let (err, measurements, plane) = view.addPlane(planeId, left, top, right, bottom)
                 
                 if(err == nil){
-                    resolve(["added": true, "error": nil, "measurements": measurements, "plane": plane])
+                    resolve(["error": nil, "measurements": measurements, "plane": plane])
                 }
                 else{
-                    resolve(["added": false, "error": err!])
+                    resolve([ "error": err!])
                 }
             }
         }
         else{
-            resolve(["added": false, "error": "Not supported"])
+            resolve(["error": "Not supported"])
         }
     }
     

@@ -141,7 +141,7 @@ import ARKit
     // Removes all nodes and lines
     // Must be called on UI thread
     // clear: all | points | planes
-    func clear(_ clear:String)
+    func clear(_ clear:String, _ vibrate: Bool)
     {
         // no need for locks since everything runs on the UI thread
         if clear == "all"{
@@ -149,6 +149,16 @@ import ARKit
          
             while let n = rootNode.childNodes.first { n.removeFromParentNode()
             }
+            
+            // Remove these in all case
+            lineNode?.removeFromParentNode()
+            targetNode?.removeFromParentNode()
+            currentNode?.removeFromParentNode()
+            
+            lineNode = nil
+            targetNode = nil
+            currentNode = nil
+            measurementLabel.text = ""
         }
         
         else if clear == "points" {
@@ -171,18 +181,11 @@ import ARKit
             return
         }
         
-        // always remove these
-        lineNode?.removeFromParentNode()
-        targetNode?.removeFromParentNode()
-        currentNode?.removeFromParentNode()
-        
-        lineNode = nil
-        targetNode = nil
-        currentNode = nil
-        measurementLabel.text = ""
-        
         lastHitResult = (nil, nil)
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        
+        if vibrate {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        }
     }
     
     // removes the current measurement step, if any
@@ -199,7 +202,9 @@ import ARKit
     }
     
     // removes the last added measurement
-    func removeLast()
+    // Must be called on UI thread
+    // clear: all | points | planes, same as clear
+    func removeLast(_ clear:String)
     {
         if let current = currentNode {
             current.removeFromParentNode()
@@ -208,14 +213,44 @@ import ARKit
             lineNode = nil
             lastHitResult = (nil, nil)
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            return
         }
-        else if let last = measurements.last{
-            last.line.removeFromParentNode()
-            last.node1.removeFromParentNode()
-            last.node2.removeFromParentNode()
-            last.text.removeFromParentNode()
-            measurements.removeLast()
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        
+        if clear == "all" {
+            
+            if let last = measurements.last{
+                last.removeNodes()
+                measurements.removeLast()
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            }
+        }
+        else if clear == "points" {
+            for (i, m) in measurements.enumerated().reversed() {
+                if m.planeId.isEmpty {
+                    m.removeNodes()
+                    measurements.remove(at: i)
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    break
+                }
+            }
+        }
+        else if clear == "planes" {
+            
+            var planeId = ""
+            
+            for (i, m) in measurements.enumerated().reversed() {
+                // assign the first plane id and start removing from there.
+                if !m.planeId.isEmpty && (planeId.isEmpty || m.planeId == planeId) {
+                    planeId = m.planeId
+                    m.removeNodes()
+                    measurements.remove(at: i)
+                }
+            }
+            
+            // if we found a plane, vibrate
+            if !planeId.isEmpty {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            }
         }
     }
     

@@ -210,11 +210,13 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    * clear: "all" | "points" | "planes"
    *  by default clears all measurements, otherwise, clear only those added by addPoint, or those
    *  added by addPlane
+   *
+   * vibrate: disables vibration if false
    */
-  async clear(clear="all"){
+  async clear(clear="all", vibrate=true){
     const handle = findNodeHandle(this._ref.current);
     if(handle){
-      await ZarMeasureModule.clear(handle, clear);
+      await ZarMeasureModule.clear(handle, clear, vibrate);
     }
   }
 
@@ -231,11 +233,18 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
   /**
    * Removes the last added measurement, if any, or removes the previously
    * added partial node (stops current measurement).
+   *
+   * clear: "all" | "points" | "planes"
+   * if all, clears any previous measurement line
+   * if points, only clears previous measurement lines added with addPoint, planes are excluded
+   * if planes: only clears the previously added plane (all measurements)
+   *
+   * in every case, the current active node (if any) will be cleared first and the operation stopped.
    */
-  async removeLast(){
+  async removeLast(clear="all"){
     const handle = findNodeHandle(this._ref.current);
     if(handle){
-      await ZarMeasureModule.removeLast(handle);
+      await ZarMeasureModule.removeLast(handle, clear);
     }
   }
 
@@ -275,12 +284,12 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    * measurement.distance: distance in meters (regarldess of unit)
    * cameraDistance: camera distance in meters
    */
-  async addPoint(setCurrent=false) : {added: boolean, error: string, measurement: MeasurementLine, cameraDistance: number} {
+  async addPoint(setCurrent=false) : {error: string, measurement: MeasurementLine, cameraDistance: number} {
     const handle = findNodeHandle(this._ref.current);
     if(handle){
       return await ZarMeasureModule.addPoint(handle, setCurrent);
     }
-    return {error: "View not available", added: false};
+    return {error: "View not available"};
   }
 
   /**
@@ -295,12 +304,12 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    * Pass everything as false to just perform plane detection and get the plane ID.
    */
   async addPlane(id='', left=true, top=true, right=true, bottom=true)
-   : {added: boolean, error: string, plane: ARPlane, measurements: [MeasurementLine]} {
+   : {error: string, plane: ARPlane, measurements: [MeasurementLine]} {
     const handle = findNodeHandle(this._ref.current);
     if(handle){
       return await ZarMeasureModule.addPlane(handle, id, left, top, right, bottom);
     }
-    return {error: "View not available", added: false};
+    return {error: "View not available"};
   }
 
   /**
