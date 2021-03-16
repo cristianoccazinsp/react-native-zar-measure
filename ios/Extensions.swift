@@ -163,6 +163,32 @@ extension ARMeshClassification {
             @unknown default: return .white
         }
     }
+    
+    var vectorWhite: SCNVector3 {
+        return SCNVector3(x: 1, y: 1, z: 1)
+    }
+    
+    var vectorBlue: SCNVector3 {
+        return SCNVector3(x: 0, y: 0, z: 1)
+    }
+    
+    var vectorYellow: SCNVector3 {
+        return SCNVector3(x: 1, y: 1, z: 0)
+    }
+    
+    var colorVector: SCNVector3 {
+        switch self {
+            case .ceiling: return vectorBlue
+            case .door: return vectorWhite
+            case .floor: return vectorBlue
+            case .seat: return vectorWhite
+            case .table: return vectorWhite
+            case .wall: return vectorYellow
+            case .window: return vectorWhite
+            case .none: return vectorWhite
+            @unknown default: return vectorWhite
+        }
+    }
 }
 
 
@@ -172,23 +198,51 @@ extension SCNGeometry {
     /**
      Constructs an SCNGeometry element from an ARMeshAnchor.
      
-     Note, the underlying vertex data is owned by the ARMeshAnchor so this geometry becomes invalid when the
-     anchor is updated or removed.
+      if setColors, will set colors automatically on each face based on ARMeshClassification above
     */
-    public static func fromAnchor(meshAnchor: ARMeshAnchor) -> SCNGeometry {
-        let vertices = meshAnchor.geometry.vertices
-        let faces = meshAnchor.geometry.faces
+    public static func fromAnchor(meshAnchor: ARMeshAnchor, setColors: Bool) -> SCNGeometry {
+        let meshGeometry = meshAnchor.geometry
+        let vertices = meshGeometry.vertices
+        let normals = meshGeometry.normals
+        let faces = meshGeometry.faces
         
         // use the MTL buffer that ARKit gives us
         let vertexSource = SCNGeometrySource(buffer: vertices.buffer, vertexFormat: vertices.format, semantic: .vertex, vertexCount: vertices.count, dataOffset: vertices.offset, dataStride: vertices.stride)
         
+        let normalsSource = SCNGeometrySource(buffer: normals.buffer, vertexFormat: normals.format, semantic: .normal, vertexCount: normals.count, dataOffset: normals.offset, dataStride: normals.stride)
+
         // Copy bytes as we may use them later
         let faceData = Data(bytes: faces.buffer.contents(), count: faces.buffer.length)
         
         // create the geometry element
         let geometryElement = SCNGeometryElement(data: faceData, primitiveType: .of(faces.primitiveType), primitiveCount: faces.count, bytesPerIndex: faces.bytesPerIndex)
-        let geometry = SCNGeometry(sources: [vertexSource], elements: [geometryElement])
         
+        
+        let geometry : SCNGeometry
+        
+        if setColors {
+            // calculate colors for each indivudal face, instead of the entire mesh
+            var colors: [SCNVector3] = []
+            for i in 0..<faces.count {
+                colors.append(meshGeometry.classificationOf(faceWithIndex: i).colorVector)
+            }
+            
+            let colorSource = SCNGeometrySource(data: NSData(bytes: colors, length: MemoryLayout<SCNVector3>.size * colors.count) as Data,
+                semantic: .color,
+                vectorCount: colors.count,
+                usesFloatComponents: true,
+                componentsPerVector: 3,
+                bytesPerComponent: MemoryLayout<Float>.size,
+                dataOffset: 0,
+                dataStride: MemoryLayout<SCNVector3>.size
+            )
+            
+            geometry = SCNGeometry(sources: [vertexSource, normalsSource, colorSource], elements: [geometryElement])
+        }
+        else {
+            geometry = SCNGeometry(sources: [vertexSource, normalsSource], elements: [geometryElement])
+        }
+
         return geometry;
     }
 }
@@ -196,7 +250,7 @@ extension SCNGeometry {
 
 @available(iOS 13.4, *)
 extension SCNGeometryPrimitiveType {
-    static  func  of(_ type: ARGeometryPrimitiveType) -> SCNGeometryPrimitiveType {
+    static func of(_ type: ARGeometryPrimitiveType) -> SCNGeometryPrimitiveType {
        switch type {
        case .line:
             return .line

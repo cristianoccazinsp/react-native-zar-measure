@@ -490,19 +490,15 @@ class AnchorGeometryNode: SCNNode {
 class AnchorMeshNode: SCNNode {
     
     let meshNode: SCNNode
-    var classification: ARMeshClassification
     var defaultMaterial = SCNMaterial()
     
     /// - Tag: VisualizePlane
     init(anchor: ARMeshAnchor) {
         
-        let geometry = SCNGeometry.fromAnchor(meshAnchor: anchor)
-
-        classification = anchor.geometry.classificationOf(faceWithIndex: 0)
+        let geometry = SCNGeometry.fromAnchor(meshAnchor: anchor, setColors: true)
         
         // assign a material suitable for default visualization
         defaultMaterial.fillMode = .lines
-        defaultMaterial.diffuse.contents = classification.color
         geometry.materials = [defaultMaterial]
         
         meshNode = SCNNode()
@@ -520,10 +516,8 @@ class AnchorMeshNode: SCNNode {
     }
     
     public func updateMesh(_ anchor: ARMeshAnchor){
-        classification = anchor.geometry.classificationOf(faceWithIndex: 0)
-        let newGeometry = SCNGeometry.fromAnchor(meshAnchor: anchor)
-        defaultMaterial.diffuse.contents = classification.color
-        newGeometry.materials = [defaultMaterial]
+        let newGeometry = SCNGeometry.fromAnchor(meshAnchor: anchor, setColors: true)
         meshNode.geometry = newGeometry
+        newGeometry.materials = [defaultMaterial]
     }
 }
