@@ -817,7 +817,7 @@ import ARKit
         if(showGeometry){
             if let planeAnchor = anchor as? ARPlaneAnchor{
                 for child in node.childNodes {
-                    if let mesh = child.childNodes.first as? AnchorGeometryNode {
+                    if let mesh = child as? AnchorGeometryNode {
                         mesh.updateMesh(planeAnchor)
                     }
                 }
@@ -828,7 +828,7 @@ import ARKit
             if #available(iOS 13.4, *){
                 if let meshAnchor = anchor as? ARMeshAnchor {
                     for child in node.childNodes {
-                        if let mesh = child.childNodes.first as? AnchorMeshNode {
+                        if let mesh = child as? AnchorMeshNode {
                             mesh.updateMesh(meshAnchor)
                         }
                     }
