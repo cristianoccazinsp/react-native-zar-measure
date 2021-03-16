@@ -22,7 +22,7 @@ RCT_EXPORT_VIEW_PROPERTY(onMountError, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onTextTap, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onPlaneTap, RCTDirectEventBlock)
 
-RCT_EXTERN_METHOD(clear: (nonnull NSNumber *)node resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
+RCT_EXTERN_METHOD(clear: (nonnull NSNumber *)node clear:(nonnull NSString *)clear resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(clearCurrent: (nonnull NSNumber *)node resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
 

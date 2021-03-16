@@ -30,6 +30,7 @@ public typealias JSARPlane = Dictionary<String, Any>
 @available(iOS 13, *)
 class MeasurementGroup {
     var id : String
+    var planeId: String = "" // if it was added as part of a plane add operation
     var node1 : SphereNode
     var node2 : SphereNode
     var line : LineNode
@@ -46,9 +47,22 @@ class MeasurementGroup {
         self.text.id = id
     }
     
+    convenience init(_ planeId : String, _ node1:SphereNode, _ node2:SphereNode, _ line:LineNode, _ text:TextNode, _ distance:CGFloat){
+        self.init(node1, node2, line, text, distance)
+        self.planeId = planeId
+    }
+    
+    func removeNodes(){
+        node1.removeFromParentNode()
+        node2.removeFromParentNode()
+        line.removeFromParentNode()
+        text.removeFromParentNode()
+    }
+    
     func toDict() -> MeasurementLine {
         return [
             "id": id,
+            "planeId": planeId,
             "node1": [
                 "x": node1.worldPosition.x,
                 "y": node1.worldPosition.y,
@@ -78,6 +92,7 @@ class MeasurementGroup {
             
             var res : MeasurementLine2D = [
                 "id": id,
+                "planeId": planeId,
                 "distance": self.distance,
                 "label": self.text.label,
                 "bounds": [

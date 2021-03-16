@@ -61,7 +61,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
   
     
     @objc
-    func clear(_ node:NSNumber, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    func clear(_ node:NSNumber, clear: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 13, *) {
             DispatchQueue.main.async { [weak self] in
@@ -71,7 +71,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
                     return;
                 }
                 
-                view.clear()
+                view.clear(clear)
                 resolve(nil)
             }
         }

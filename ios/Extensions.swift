@@ -86,9 +86,7 @@ extension ARPlaneAnchor {
     // returns all 4 world coordinates of the given plane
     // (topLeft, topRight, bottomLeft, bottomRight)
     func worldPoints() -> (SCNVector3, SCNVector3, SCNVector3, SCNVector3) {
-        // returns a transform matrix from a point
         
-
         // Get world's updated center
         let worldTransform = transform * translateTransform(center.x, 0, center.z)
         

@@ -135,6 +135,7 @@ type MeasurementNode = {
 
 type MeasurementLine = {
   id: string,
+  planeId: string, // if it was added as part of an add plane operation
   node1: MeasurementNode,
   node2: MeasurementNode,
   label: String, // text node label
@@ -143,6 +144,7 @@ type MeasurementLine = {
 
 type MeasurementLine2D = {
   id: string,
+  planeId: string, // if it was added as part of an add plane operation
   node1: MeasurementNode,
   node2: MeasurementNode,
   label: String, // text node label
@@ -203,12 +205,16 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
   // ------ Public methods --------
 
   /**
-   * Clears all drawings from the AR scene
+   * Clears all measurements from the AR scene
+   *
+   * clear: "all" | "points" | "planes"
+   *  by default clears all measurements, otherwise, clear only those added by addPoint, or those
+   *  added by addPlane
    */
-  async clear(){
+  async clear(clear="all"){
     const handle = findNodeHandle(this._ref.current);
     if(handle){
-      await ZarMeasureModule.clear(handle);
+      await ZarMeasureModule.clear(handle, clear);
     }
   }
 
@@ -279,11 +285,14 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
 
   /**
    * Adds measurements to a detected plane and returns all measurement lines and plane info.
+   * Note that planes here are AR's raw estimates, and not processed image planes like native apps,
+   * useful only for large surfaces (e.g., walls and floors)
    *
    * id: if empty, performs a hit test against the current node,
    * otherwise, attempts to add measurements to the given plane ID
    *
-   * left, top, right, bottom: if to include a measurement to that edge or not
+   * left, top, right, bottom: flag to automatically add a measurment line to that edge or not.
+   * Pass everything as false to just perform plane detection and get the plane ID.
    */
   async addPlane(id='', left=true, top=true, right=true, bottom=true)
    : {added: boolean, error: string, plane: ARPlane, measurements: [MeasurementLine]} {

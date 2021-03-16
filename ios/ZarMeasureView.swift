@@ -140,21 +140,47 @@ import ARKit
     
     // Removes all nodes and lines
     // Must be called on UI thread
-    func clear()
+    // clear: all | points | planes
+    func clear(_ clear:String)
     {
         // no need for locks since everything runs on the UI thread
-        measurements.removeAll()
+        if clear == "all"{
+            measurements.removeAll()
+         
+            while let n = rootNode.childNodes.first { n.removeFromParentNode()
+            }
+        }
+        
+        else if clear == "points" {
+            for (i, m) in measurements.enumerated().reversed() {
+                if m.planeId.isEmpty {
+                    m.removeNodes()
+                    measurements.remove(at: i)
+                }
+            }
+        }
+        else if clear == "planes" {
+            for (i, m) in measurements.enumerated().reversed() {
+                if !m.planeId.isEmpty {
+                    m.removeNodes()
+                    measurements.remove(at: i)
+                }
+            }
+        }
+        else{
+            return
+        }
+        
+        // always remove these
         lineNode?.removeFromParentNode()
         targetNode?.removeFromParentNode()
         currentNode?.removeFromParentNode()
-     
-        while let n = rootNode.childNodes.first { n.removeFromParentNode()
-        }
         
         lineNode = nil
         targetNode = nil
         currentNode = nil
         measurementLabel.text = ""
+        
         lastHitResult = (nil, nil)
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
@@ -378,7 +404,7 @@ import ARKit
             
             var added : [MeasurementLine] = []
             
-            func addNode (_ point1: SCNVector3, _ point2: SCNVector3) {
+            func addNode (_ planeId: String, _ point1: SCNVector3, _ point2: SCNVector3) {
                 
                 let sphere1 = SphereNode(at: point1, color: self.nodeColor)
                 let sphere2 = SphereNode(at: point2, color: self.nodeColor)
@@ -388,7 +414,7 @@ import ARKit
                 
                 let line = LineNode(from: point1, to: point2, lineColor: self.textColor)
                
-                let newMeasure = MeasurementGroup(sphere1, sphere2, line, text, distance)
+                let newMeasure = MeasurementGroup(planeId, sphere1, sphere2, line, text, distance)
                 measurements.append(newMeasure)
                 
                 // call sacale funs
@@ -408,21 +434,22 @@ import ARKit
             
             
             let (topLeft, topRight, bottomLeft, bottomRight) = _plane.worldPoints()
+            let planeId = _plane.getId()
             
             if left {
-                addNode(topLeft, bottomLeft)
+                addNode(planeId, topLeft, bottomLeft)
             }
             
             if top {
-                addNode(topLeft, topRight)
+                addNode(planeId, topLeft, topRight)
             }
             
             if right {
-                addNode(topRight, bottomRight)
+                addNode(planeId, topRight, bottomRight)
             }
             
             if bottom {
-                addNode(bottomLeft, bottomRight)
+                addNode(planeId, bottomLeft, bottomRight)
             }
             
             return (nil, added, _plane.toDict())
