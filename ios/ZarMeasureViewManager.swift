@@ -124,7 +124,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
     
     
     @objc
-    func removeMeasurement(_ node:NSNumber, nodeId nid:String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    func removeMeasurement(_ node:NSNumber, nodeId:String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 13, *) {
             DispatchQueue.main.async { [weak self] in
@@ -134,7 +134,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
                     return;
                 }
                 
-                resolve(view.removeMeasurement(nid))
+                resolve(view.removeMeasurement(nodeId))
             }
         }
         else{
@@ -144,7 +144,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
     
     
     @objc
-    func editMeasurement(_ node:NSNumber, nodeId nid:String, nodeText text:String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    func editMeasurement(_ node:NSNumber, nodeId:String, text:String, clearPlane: Bool, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 13, *) {
             DispatchQueue.main.async { [weak self] in
@@ -154,7 +154,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
                     return;
                 }
                 
-                resolve(view.editMeasurement(nid, text))
+                resolve(view.editMeasurement(nodeId, text, clearPlane))
             }
         }
         else{
@@ -164,7 +164,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
     
     
     @objc
-    func addPoint(_ node:NSNumber, setCurrent current : Bool, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    func addPoint(_ node:NSNumber, setCurrent: Bool, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 13, *) {
             DispatchQueue.main.async { [weak self] in
@@ -174,7 +174,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
                     return;
                 }
                 
-                let (err, measurement, cameraDistance) = view.addPoint(current)
+                let (err, measurement, cameraDistance) = view.addPoint(setCurrent)
                 
                 if(err == nil){
                     resolve(["error": nil, "measurement": measurement,
@@ -239,7 +239,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
     
     
     @objc
-    func getPlanes(_ node:NSNumber, minArea area: NSNumber, alignment: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    func getPlanes(_ node:NSNumber, minArea: NSNumber, alignment: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 13, *) {
             DispatchQueue.main.async { [weak self] in
@@ -249,7 +249,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
                     return;
                 }
                 
-                resolve(view.getPlanes(Float(truncating: area), alignment))
+                resolve(view.getPlanes(Float(truncating: minArea), alignment))
             }
         }
         else{
@@ -259,7 +259,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
     
     
     @objc
-    func takePicture(_ node:NSNumber, imagePath path: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    func takePicture(_ node:NSNumber, imagePath: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 13, *) {
             DispatchQueue.main.async { [weak self] in
@@ -269,7 +269,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
                     return;
                 }
                 
-                view.takePicture(path){ (err, measurements) in
+                view.takePicture(imagePath){ (err, measurements) in
                     if(err == nil){
                         resolve(["error": nil, "measurements": measurements])
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -288,7 +288,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
     
     
     @objc
-    func saveToFile(_ node:NSNumber, filePath path: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    func saveToFile(_ node:NSNumber, filePath: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 13, *) {
             DispatchQueue.main.async { [weak self] in
@@ -298,7 +298,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
                     return;
                 }
                 
-                view.saveToFile(path){ (err) in
+                view.saveToFile(filePath){ (err) in
                     if(err == nil){
                         resolve(["error": nil])
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()

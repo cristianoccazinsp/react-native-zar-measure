@@ -270,7 +270,7 @@ import ARKit
         return node.toDict()
     }
     
-    func editMeasurement(_ id:String, _ text:String) -> MeasurementLine?
+    func editMeasurement(_ id:String, _ text:String, _ clearPlane:Bool) -> MeasurementLine?
     {
         guard let idx = measurements.firstIndex(where: {$0.id == id}) else { return nil}
         
@@ -282,6 +282,10 @@ import ARKit
         node.text = TextNode(between: node.node1.position, and: node.node2.position, textLabel: text, textColor: self.nodeColor)
         node.text.id = node.id
         node.text.setScale(sceneView: self.sceneView)
+        
+        if clearPlane {
+            node.planeId = ""
+        }
         
         self.rootNode.addChildNode(node.text)
         

@@ -263,12 +263,14 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
   /**
    * Edits an existing measurement text node, setting a custom text.
    *
+   * clearPlane: removes plane id from the node so it can be skipped in clear operations
+   *
    * Returns updated node, or null if node wasn't found.
    */
-  async editMeasurement(id, text) : MeasurementLine {
+  async editMeasurement(id, text, clearPlane=true) : MeasurementLine {
     const handle = findNodeHandle(this._ref.current);
     if(handle){
-      return await ZarMeasureModule.editMeasurement(handle, id, text);
+      return await ZarMeasureModule.editMeasurement(handle, id, text, clearPlane);
     }
   }
 
