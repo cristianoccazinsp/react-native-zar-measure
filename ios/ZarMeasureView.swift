@@ -726,8 +726,9 @@ import ARKit
     private var takingPicture = false
     
     // throttle some operations
-    private var donutScaleTimeout = 0.4
-    private var nodesScaleTimeout = 0.1
+    private var donutScaleTimeout = 0.05
+    private var donutScaleAnimation = 0.2
+    private var nodesScaleTimeout = 0.05
     private var closeNodeTimeout = 0.8
     private var donutLastScaled = TimeInterval(0)
     private var nodesLastScaled = TimeInterval(0)
@@ -944,7 +945,7 @@ import ARKit
         
         // these always need to be updated
         // update text and nodes scales from measurements
-        if (time - nodesScaleTimeout > nodesScaleTimeout){
+        if (time - nodesLastScaled > nodesScaleTimeout) {
             
             // protect the measurements collection here
             lock.wait()
@@ -987,19 +988,13 @@ import ARKit
         let (err, result) = doRayTestOnExistingPlanes(sceneCenter)
         var mustVibrate = false
         
-        // if distance between current and last did not change considerably, do nothing
+        // check previous results so we throttle node snagging
         if let _result = result, let _prev = lastHitResult.1 {
             
             mustVibrate = (_prev.isCloseNode != _result.isCloseNode)
             
             // only do these if error flag didnt change
             if err == lastHitResult.0 {
-                let dist = _result.position.distance(to: _prev.position)
-                
-                // if distance did not change (significantly)
-                if dist < _result.distance * 0.002 {
-                    return
-                }
                 
                 // otherwise, if we had a close node, check timeout
                 if _prev.isCloseNode && (time - closeNodeLastTime < closeNodeTimeout) {
@@ -1086,15 +1081,14 @@ import ARKit
             
             
             // throttle rotation changes to avoid odd effects
-            if (time - donutScaleTimeout > donutScaleTimeout * 2){
+            if (time - donutLastScaled > donutScaleTimeout) && targetNode != nil{
                 
-                // Animate rotation update so it looks nicer
+                // Animate this so it looks nicer
                 SCNTransaction.begin()
-                SCNTransaction.animationDuration = donutScaleTimeout
+                SCNTransaction.animationDuration = donutScaleAnimation
                 targetNode?.setDonutScale(sceneView: sceneView, hitResult: _result)
-                SCNTransaction.commit()
-                
                 donutLastScaled = time
+                SCNTransaction.commit()
             }
             
             // show/hide hit plane if configured
@@ -1138,7 +1132,9 @@ import ARKit
             
             // vibration on close changes
             if mustVibrate {
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                DispatchQueue.main.async {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
             }
             
             mStatus = err == nil ? "ready" : "error"
@@ -1158,7 +1154,7 @@ import ARKit
             lineNode.setScale(sceneView: sceneView, in: targetNode)
         }
         
-        if(mStatus != measuringStatus){
+        if (mStatus != measuringStatus) {
             measuringStatus = mStatus
             onMeasuringStatusChange?(["status": mStatus])
         }
@@ -1261,7 +1257,7 @@ import ARKit
             }
         }
         
-        sceneView.preferredFramesPerSecond = 30
+        // sceneView.preferredFramesPerSecond = 30 // do not set anymore, allow the platform to pick it
         sceneView.rendersCameraGrain = false
         //sceneView.debugOptions = [.showFeaturePoints]
         //sceneView.debugOptions = [.showWorldOrigin]
