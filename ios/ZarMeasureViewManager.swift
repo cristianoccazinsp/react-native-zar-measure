@@ -212,7 +212,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
     
     
     @objc
-    func addPlane(_ node:NSNumber, planeId:String, left:Bool, top:Bool, right:Bool, bottom:Bool, setId:Bool, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    func addPlane(_ node:NSNumber, planeId:String, left:Bool, top:Bool, right:Bool, bottom:Bool, setId:Bool, vibrate:Bool, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 13, *) {
             DispatchQueue.main.async { [weak self] in
@@ -222,7 +222,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
                     return;
                 }
                 
-                let (err, measurements, plane) = view.addPlane(planeId, left, top, right, bottom, setId)
+                let (err, measurements, plane) = view.addPlane(planeId, left, top, right, bottom, setId, vibrate)
                 
                 if(err == nil){
                     resolve(["error": nil, "measurements": measurements, "plane": plane])

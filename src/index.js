@@ -358,11 +358,11 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    * setId: sets the plane ID to the added measurements so they can be referenced later. Set to false
    * to skip it from calls that affect plane measurements.
    */
-  async addPlane(id='', left=true, top=true, right=true, bottom=true, setId=true)
+  async addPlane(id='', left=true, top=true, right=true, bottom=true, setId=true, vibrate=false)
    : {error: string, plane: ARPlane, measurements: [MeasurementLine]} {
     const handle = findNodeHandle(this._ref.current);
     if(handle){
-      return await ZarMeasureModule.addPlane(handle, id, left, top, right, bottom, setId);
+      return await ZarMeasureModule.addPlane(handle, id, left, top, right, bottom, setId, vibrate);
     }
     return {error: "View not available"};
   }

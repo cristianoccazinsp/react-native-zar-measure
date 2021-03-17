@@ -435,7 +435,7 @@ import ARKit
     // Adds a new set of edges to a target plane, or currently focused node
     // if ID is not given
     // must be called on UI thread
-    func addPlane(_ id:String, _ left:Bool, _ top:Bool, _ right:Bool, _ bottom:Bool, _ setId:Bool) -> (String?, [MeasurementLine], JSARPlane?)
+    func addPlane(_ id:String, _ left:Bool, _ top:Bool, _ right:Bool, _ bottom:Bool, _ setId:Bool, _ vibrate:Bool) -> (String?, [MeasurementLine], JSARPlane?)
     {
         defer {
             // clear hit results on adding point so we refresh existing nodes
@@ -525,6 +525,10 @@ import ARKit
             
             if bottom {
                 addNode(planeId, bottomLeft, bottomRight)
+            }
+            
+            if (vibrate && added.count > 0) {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
             }
             
             return (nil, added, _plane.toDict())
