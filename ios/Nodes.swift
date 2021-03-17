@@ -276,33 +276,25 @@ class TargetNode: SCNNode {
         sphere.scale = SCNVector3Make(scale, scale, scale)
     }
     
-    func setDonutScale(sceneView view : ARSCNView, hitResult hit: HitResult, animation duration: Double){
+    func setDonutScale(sceneView view : ARSCNView, hitResult hit: HitResult){
         
         guard let donut = self.childNode(withName: "donut", recursively: false) else {return}
         
-        DispatchQueue.main.async {
-            // Animate rotation update so it looks nicer
-            SCNTransaction.begin()
-            SCNTransaction.animationDuration = duration
+        if let _anchor = hit.anchor {
+            guard let anchoredNode = view.node(for: _anchor) else { return }
             
-            if let _anchor = hit.anchor {
-                guard let anchoredNode = view.node(for: _anchor) else { return }
-                
-                // rotate our donut based on detected anchor
-                donut.eulerAngles.x = anchoredNode.eulerAngles.x
-                donut.eulerAngles.y = anchoredNode.eulerAngles.y
-                donut.eulerAngles.z = anchoredNode.eulerAngles.z
-            }
-            else{
-                
-                let dummy = SCNNode()
-                dummy.transform = SCNMatrix4(hit.transform)
-                donut.eulerAngles.x = dummy.eulerAngles.x
-                donut.eulerAngles.y = dummy.eulerAngles.y
-                donut.eulerAngles.z = dummy.eulerAngles.z
-            }
+            // rotate our donut based on detected anchor
+            donut.eulerAngles.x = anchoredNode.eulerAngles.x
+            donut.eulerAngles.y = anchoredNode.eulerAngles.y
+            donut.eulerAngles.z = anchoredNode.eulerAngles.z
+        }
+        else{
             
-            SCNTransaction.commit()
+            let dummy = SCNNode()
+            dummy.transform = SCNMatrix4(hit.transform)
+            donut.eulerAngles.x = dummy.eulerAngles.x
+            donut.eulerAngles.y = dummy.eulerAngles.y
+            donut.eulerAngles.z = dummy.eulerAngles.z
         }
     }
     

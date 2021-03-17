@@ -142,17 +142,25 @@ import ARKit
     // clear: all | points | planes
     func clear(_ clear:String, _ vibrate: Bool)
     {
-        // no need for locks since everything runs on the UI thread
+        // Need to use locks since we are modifying the measurements collection
+        lock.wait()
+        defer {
+            lock.signal()
+        }
+        
         if clear == "all"{
-            measurements.removeAll()
-         
-            while let n = rootNode.childNodes.first { n.removeFromParentNode()
-            }
             
             // Remove these in all case
             lineNode?.removeFromParentNode()
             targetNode?.removeFromParentNode()
             currentNode?.removeFromParentNode()
+            
+            // remove all nodes from measurements, then clear the list
+            // need a lock here?
+            for m in measurements {
+                m.removeNodes()
+            }
+            measurements.removeAll()
             
             lineNode = nil
             targetNode = nil
@@ -190,6 +198,11 @@ import ARKit
     // removes the current measurement step, if any
     func clearCurrent()
     {
+        lock.wait()
+        defer {
+            lock.signal()
+        }
+        
         if let current = currentNode {
             current.removeFromParentNode()
             lineNode?.removeFromParentNode()
@@ -205,6 +218,11 @@ import ARKit
     // clear: all | points | planes, same as clear
     func removeLast(_ clear:String)
     {
+        lock.wait()
+        defer {
+            lock.signal()
+        }
+        
         if let current = currentNode {
             current.removeFromParentNode()
             lineNode?.removeFromParentNode()
@@ -269,6 +287,11 @@ import ARKit
     
     func removeMeasurement(_ id:String) -> MeasurementLine?
     {
+        lock.wait()
+        defer {
+            lock.signal()
+        }
+        
         guard let idx = measurements.firstIndex(where: {$0.id == id}) else { return nil}
         
         let node = measurements[idx]
@@ -281,6 +304,11 @@ import ARKit
     
     func removePlane(_ planeId:String) -> [MeasurementLine]
     {
+        lock.wait()
+        defer {
+            lock.signal()
+        }
+        
         var deleted : [MeasurementLine] = []
         
         for (i, m) in measurements.enumerated().reversed() {
@@ -301,6 +329,11 @@ import ARKit
     
     func editMeasurement(_ id:String, _ text:String, _ clearPlane:Bool) -> MeasurementLine?
     {
+        lock.wait()
+        defer {
+            lock.signal()
+        }
+        
         guard let idx = measurements.firstIndex(where: {$0.id == id}) else { return nil}
         
         let node = measurements[idx]
@@ -324,6 +357,11 @@ import ARKit
     }
     
     func getMeasurements() -> [MeasurementLine]{
+        lock.wait()
+        defer {
+            lock.signal()
+        }
+        
         return measurements.enumerated().map { (index, element) in
             return element.toDict()
         }
@@ -357,6 +395,10 @@ import ARKit
     // if setCurrent is true, sets the newly added point as the current one
     func addPoint(_ setCurrent : Bool) -> (String?, MeasurementLine?, CGFloat?)
     {
+        lock.wait()
+        defer {
+            lock.signal()
+        }
         
         let (er, resultx) = self.lastHitResult
         
@@ -437,10 +479,13 @@ import ARKit
     // must be called on UI thread
     func addPlane(_ id:String, _ left:Bool, _ top:Bool, _ right:Bool, _ bottom:Bool, _ setId:Bool, _ vibrate:Bool) -> (String?, [MeasurementLine], JSARPlane?)
     {
+        lock.wait()
         defer {
             // clear hit results on adding point so we refresh existing nodes
             // due to some shapes needing to change
             self.lastHitResult = (nil, nil)
+            
+            lock.signal()
         }
         
         var plane : ARPlaneAnchor? = nil
@@ -549,6 +594,11 @@ import ARKit
             completion("Not ready", [])
         }
         
+        lock.wait()
+        defer {
+            lock.signal()
+        }
+        
         takingPicture = true
         
         // temporary remove target nodes from view
@@ -615,6 +665,11 @@ import ARKit
             completion("Not ready")
         }
         
+        lock.wait()
+        defer {
+            lock.signal()
+        }
+        
         // use same flag for now
         takingPicture = true
         
@@ -659,6 +714,8 @@ import ARKit
     
 
     // MARK: Private properties
+    private let lock = DispatchSemaphore(value: 1)
+    //private let dispatchQueue = DispatchQueue.init(label: "ZarMeasureViewSession", qos: .userInteractive)
     private var sceneView = ARSCNView()
     private var configuration = ARWorldTrackingConfiguration()
     private var isRunning = false // to control session toggles
@@ -734,7 +791,7 @@ import ARKit
             toggleSession(false)
         }
         else{
-            toggleSession(true)
+            toggleSession(true, true)
         }
     }
 
@@ -776,11 +833,16 @@ import ARKit
     
     public func sessionWasInterrupted(_ session: ARSession) {
         // do some soft cleanup - restart
+        let status = "off"
         arReady = false
-        arStatus = "off"
         measuringStatus = "off"
         lastHitResult = (nil, nil)
         isRunning = false
+        
+        if(status != arStatus){
+            arStatus = status
+            onARStatusChange?(["status": status])
+        }
     }
     
     public func sessionInterruptionEnded(_ session: ARSession) {
@@ -880,10 +942,12 @@ import ARKit
             return
         }
         
-        
         // these always need to be updated
         // update text and nodes scales from measurements
         if (time - nodesScaleTimeout > nodesScaleTimeout){
+            
+            // protect the measurements collection here
+            lock.wait()
             
             for t in measurements {
                 t.text.setScale(sceneView: sceneView)
@@ -896,9 +960,11 @@ import ARKit
             targetNode?.setSphereScale(sceneView: sceneView)
             
             nodesLastScaled = time
+            
+            lock.signal()
         }
         
-        if !arReady{
+        if !arReady {
             // remove previous nodes
             lineNode?.removeFromParentNode()
             lineNode = nil
@@ -1021,7 +1087,12 @@ import ARKit
             
             // throttle rotation changes to avoid odd effects
             if (time - donutScaleTimeout > donutScaleTimeout * 2){
-                targetNode?.setDonutScale(sceneView: sceneView, hitResult: _result, animation: donutScaleTimeout)
+                
+                // Animate rotation update so it looks nicer
+                SCNTransaction.begin()
+                SCNTransaction.animationDuration = donutScaleTimeout
+                targetNode?.setDonutScale(sceneView: sceneView, hitResult: _result)
+                SCNTransaction.commit()
                 
                 donutLastScaled = time
             }
@@ -1223,7 +1294,7 @@ import ARKit
     
     
     // must be called on UI thread
-    private func toggleSession(_ on:Bool){
+    private func toggleSession(_ on:Bool, _ reset: Bool = false){
         
         if(on){
             // avoid starting it if it was running
@@ -1245,7 +1316,13 @@ import ARKit
             coachingView.session = sceneView.session
             
             // start session
-            sceneView.session.run(configuration)
+            if reset {
+                sceneView.session.run(configuration, options: [.removeExistingAnchors, .resetSceneReconstruction, .resetTracking, .stopTrackedRaycasts])
+            }
+            else {
+                sceneView.session.run(configuration)
+            }
+            
             isRunning = true
             
             // run this afterwards, for some reason the session takes time to start
@@ -1265,13 +1342,14 @@ import ARKit
         else{
             
             // remove gesture handlers, delegates, and stop session
+            sceneView.session.pause()
+            sceneView.gestureRecognizers?.removeAll()
+            
             coachingView.delegate = nil
             coachingView.session = nil
-            
-            sceneView.gestureRecognizers?.removeAll()
             sceneView.delegate = nil
             sceneView.session.delegate = nil
-            sceneView.session.pause()
+            
             
             arReady = false
             arStatus = "off"
