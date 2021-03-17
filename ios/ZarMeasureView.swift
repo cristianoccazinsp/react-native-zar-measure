@@ -1186,7 +1186,7 @@ import ARKit
         // First try to hit against our text nodes
         // only if text tap was defined
         if onTextTap != nil {
-            let result = sceneView.hitTest(touchLocation, options: [SCNHitTestOption.searchMode: 1, SCNHitTestOption.rootNode: rootNode])
+            let result = sceneView.hitTest(touchLocation, options: [SCNHitTestOption.searchMode: SCNHitTestSearchMode.all.rawValue, SCNHitTestOption.rootNode: rootNode])
             
             // search all results to see if we have a text node in one of our measurements
             // or ultimately a plane node
