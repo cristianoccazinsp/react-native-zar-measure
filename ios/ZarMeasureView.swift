@@ -876,49 +876,43 @@ import ARKit
             return
         }
         
+        
         // these always need to be updated
-        DispatchQueue.main.async { [weak self] in
+        // update text and nodes scales from measurements
+        if (time - nodesScaleTimeout > nodesScaleTimeout){
             
-            guard let self = self else {return}
-            
-            // update text and nodes scales from measurements
-            if (time - self.nodesScaleTimeout > self.nodesScaleTimeout){
-                
-                for t in self.measurements {
-                    t.text.setScale(sceneView: self.sceneView)
-                    t.node1.setScale(sceneView: self.sceneView)
-                    t.node2.setScale(sceneView: self.sceneView)
-                    t.line.setScale(sceneView: self.sceneView, in: t.text)
-                }
-                
-                // scale now, and maybe later
-                self.targetNode?.setSphereScale(sceneView: self.sceneView)
-                
-                self.nodesLastScaled = time
+            for t in measurements {
+                t.text.setScale(sceneView: sceneView)
+                t.node1.setScale(sceneView: sceneView)
+                t.node2.setScale(sceneView: sceneView)
+                t.line.setScale(sceneView: sceneView, in: t.text)
             }
             
-            if !self.arReady{
-                // remove previous nodes
-                self.lineNode?.removeFromParentNode()
-                self.lineNode = nil
-                self.targetNode?.removeFromParentNode()
-                self.targetNode = nil
-                self.currentNode?.removeFromParentNode()
-                self.currentNode = nil
-                self.hitPlane?.removeFromParentNode()
-                self.hitPlane = nil
-                self.hitGeometry?.removeFromParentNode()
-                self.hitGeometry = nil
-                self.hitMesh?.removeFromParentNode()
-                self.hitMesh = nil
-            }
+            // scale now, and maybe later
+            targetNode?.setSphereScale(sceneView: sceneView)
+            
+            nodesLastScaled = time
         }
         
-        
-        if !arReady {
+        if !arReady{
+            // remove previous nodes
+            lineNode?.removeFromParentNode()
+            lineNode = nil
+            targetNode?.removeFromParentNode()
+            targetNode = nil
+            currentNode?.removeFromParentNode()
+            currentNode = nil
+            hitPlane?.removeFromParentNode()
+            hitPlane = nil
+            hitGeometry?.removeFromParentNode()
+            hitGeometry = nil
+            hitMesh?.removeFromParentNode()
+            hitMesh = nil
+            
             lastHitResult = (nil, nil)
             return
         }
+        
         
         let (err, result) = doRayTestOnExistingPlanes(sceneCenter)
         var mustVibrate = false
@@ -938,158 +932,169 @@ import ARKit
                 }
                 
                 // otherwise, if we had a close node, check timeout
-                if _prev.isCloseNode && (time - self.closeNodeLastTime < self.closeNodeTimeout) {
+                if _prev.isCloseNode && (time - closeNodeLastTime < closeNodeTimeout) {
                     return
                 }
                 
                 if _result.isCloseNode {
-                    self.closeNodeLastTime = time
+                    closeNodeLastTime = time
                 }
             }
         }
         
-        self.lastHitResult = (err, result)
+        lastHitResult = (err, result)
         
-        DispatchQueue.main.async { [weak self] in
+        
+        
+        // remove these since they are always re-created
+        // and set/clear label
+        lineNode?.removeFromParentNode()
+        lineNode = nil
+        hitPlane?.removeFromParentNode()
+        hitPlane = nil
+        hitGeometry?.removeFromParentNode()
+        hitGeometry = nil
+        hitMesh?.removeFromParentNode()
+        hitMesh = nil
+        
+        
+        // update label in UI thread
+        var newText = err != nil ? err : ""
+        
+        
+        let mStatus : String
+        
+        if let _result = result  {
             
-            guard let self = self else {return}
+            let position = _result.position
+            let closeNode = _result.isCloseNode
+        
+            // node color if there was an acceptable error
+            let color = err != nil ? nodeColorErr : (closeNode ? nodeColorClose : nodeColor)
             
-            if !self.arReady {
-                return
-            }
-            
-            
-            let mStatus : String
-            
-            // remove these since they are always re-created
-            // and set/clear label
-            self.lineNode?.removeFromParentNode()
-            self.lineNode = nil
-            self.hitPlane?.removeFromParentNode()
-            self.hitPlane = nil
-            self.hitGeometry?.removeFromParentNode()
-            self.hitGeometry = nil
-            self.hitMesh?.removeFromParentNode()
-            self.hitMesh = nil
-            
-            self.measurementLabel.text = err != nil ? err : ""
-            
-            if let position = result?.position, let closeNode = result?.isCloseNode {
-            
-                // node color if there was an acceptable error
-                let color = err != nil ? self.nodeColorErr : (closeNode ? self.nodeColorClose : self.nodeColor)
+            // if we have 1 node already, draw line
+            // also consider if we have errors
+            if let start = currentNode {
                 
-                // if we have 1 node already, draw line
-                // also consider if we have errors
-                if let start = self.currentNode {
-                    
-                    // line node
-                    self.lineNode = LineNode(from: start.position, to: position, lineColor: color)
-                    self.rootNode.addChildNode(self.lineNode!)
-                    
-                    // target node exists, update it
-                    if let target = self.targetNode{
-                        target.updatePosition(to: position, color: color)
-                    }
-                    
-                    // otherwise, re-create it
-                    else{
-                        self.targetNode = TargetNode(at: position, color: color)
-                        self.rootNode.addChildNode(self.targetNode!)
-                    }
-                    
-                    
-                    // only update label if there was no error
-                    if(err == nil){
-                        self.showMeasure(self.targetNode!.distance(to: start))
-                    }
-                    
+                // line node
+                let _lineNode = LineNode(from: start.position, to: position, lineColor: color)
+                rootNode.addChildNode(_lineNode)
+                lineNode = _lineNode
+                
+                // target node exists, update it
+                if let target = targetNode {
+                    target.updatePosition(to: position, color: color)
                 }
                 
-                // else, just add a target node
+                // otherwise, re-create it
                 else{
-                    
-                    // target node exists, update it
-                    if let target = self.targetNode{
-                        target.updatePosition(to: position, color: color)
-                    }
-                    
-                    // otherwise, re-create it
-                    else{
-                        self.targetNode = TargetNode(at: position, color: color)
-                        self.rootNode.addChildNode(self.targetNode!)
-                    }
+                    let _targetNode = TargetNode(at: position, color: color)
+                    rootNode.addChildNode(_targetNode)
+                    targetNode = _targetNode
                 }
                 
-                
-                // throttle rotation changes to avoid odd effects
-                if (time - self.donutScaleTimeout > self.donutScaleTimeout * 2){
-                    self.targetNode?.setDonutScale(sceneView: self.sceneView, hitResult: result!, animation: self.donutScaleTimeout)
-                    
-                    self.donutLastScaled = time
+                if err == nil, let distance = targetNode?.distance(to: start) {
+                    newText = getMeasureString(distance)
                 }
-                
-                // show/hide hit plane if configured
-                if self.showHitPlane && !closeNode {
-                    if let anchor = result?.anchor as? ARPlaneAnchor, let node = self.sceneView.node(for: anchor) {
-                        
-                        self.hitPlane = AnchorPlaneNode(anchor: anchor)
-                        
-                        // add it not to root node, but rather the anchor's node
-                        node.addChildNode(self.hitPlane!)
-                    }
-                }
-                
-                // show/hide hit plane if configured
-                if self.showHitGeometry && !closeNode {
-                    if let anchor = result?.anchor as? ARPlaneAnchor, let node = self.sceneView.node(for: anchor) {
-                        
-                        self.hitGeometry = AnchorGeometryNode(anchor: anchor, in: self.sceneView)
-                        
-                        // add it not to root node, but rather the anchor's node
-                        node.addChildNode(self.hitGeometry!)
-                    }
-                }
-                
-                // show/hide hit plane if configured
-                
-                if self.showHitMesh && !closeNode {
-                    if #available(iOS 13.4, *){
-                        if let anchor = result?.anchor as? ARMeshAnchor, let node = self.sceneView.node(for: anchor) {
-                            
-                            self.hitMesh = AnchorMeshNode(anchor: anchor)
-                            
-                            // add it not to root node, but rather the anchor's node
-                            node.addChildNode(self.hitMesh!)
-                        }
-                    }
-                }
-                
-                // vibration on close changes
-                if mustVibrate {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                }
-                
-                mStatus = err == nil ? "ready" : "error"
             }
+            
+            // else, just add a target node
             else{
-                // also remove target if error
-                self.targetNode?.removeFromParentNode()
-                self.targetNode = nil
                 
-                mStatus = "error"
+                // target node exists, update it
+                if let target = targetNode{
+                    target.updatePosition(to: position, color: color)
+                }
+                
+                // otherwise, re-create it
+                else{
+                    let _targetNode = TargetNode(at: position, color: color)
+                    rootNode.addChildNode(_targetNode)
+                    targetNode = _targetNode
+                }
             }
             
-            // if target node, scale it at the end even if error
-            self.targetNode?.setSphereScale(sceneView: self.sceneView)
             
-            if let lineNode = self.lineNode, let targetNode = self.targetNode {
-                lineNode.setScale(sceneView: self.sceneView, in: targetNode)
+            // throttle rotation changes to avoid odd effects
+            if (time - donutScaleTimeout > donutScaleTimeout * 2){
+                targetNode?.setDonutScale(sceneView: sceneView, hitResult: _result, animation: donutScaleTimeout)
+                
+                donutLastScaled = time
             }
             
-            if(mStatus != self.measuringStatus){
-                self.measuringStatus = mStatus
-                self.onMeasuringStatusChange?(["status": mStatus])
+            // show/hide hit plane if configured
+            if showHitPlane && !closeNode {
+                if let anchor = _result.anchor as? ARPlaneAnchor, let node = sceneView.node(for: anchor) {
+                    
+                    let _hitPlane = AnchorPlaneNode(anchor: anchor)
+                    
+                    // add it not to root node, but rather the anchor's node
+                    node.addChildNode(_hitPlane)
+                    hitPlane = _hitPlane
+                }
+            }
+            
+            // show/hide hit plane if configured
+            if showHitGeometry && !closeNode {
+                if let anchor = result?.anchor as? ARPlaneAnchor, let node = sceneView.node(for: anchor) {
+                    
+                    let _hitGeometry = AnchorGeometryNode(anchor: anchor, in: sceneView)
+                    
+                    // add it not to root node, but rather the anchor's node
+                    node.addChildNode(_hitGeometry)
+                    hitGeometry = _hitGeometry
+                }
+            }
+            
+            // show/hide hit plane if configured
+            
+            if showHitMesh && !closeNode {
+                if #available(iOS 13.4, *){
+                    if let anchor = result?.anchor as? ARMeshAnchor, let node = sceneView.node(for: anchor) {
+                        
+                        let _hitMesh = AnchorMeshNode(anchor: anchor)
+                        
+                        // add it not to root node, but rather the anchor's node
+                        node.addChildNode(_hitMesh)
+                        hitMesh = _hitMesh
+                    }
+                }
+            }
+            
+            // vibration on close changes
+            if mustVibrate {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            }
+            
+            mStatus = err == nil ? "ready" : "error"
+        }
+        else{
+            // also remove target if error
+            targetNode?.removeFromParentNode()
+            targetNode = nil
+            
+            mStatus = "error"
+        }
+        
+        // if target node, scale it at the end even if error
+        targetNode?.setSphereScale(sceneView: sceneView)
+        
+        if let lineNode = lineNode, let targetNode = targetNode {
+            lineNode.setScale(sceneView: sceneView, in: targetNode)
+        }
+        
+        if(mStatus != measuringStatus){
+            measuringStatus = mStatus
+            onMeasuringStatusChange?(["status": mStatus])
+        }
+        
+        
+        DispatchQueue.main.async {
+            if self.arReady {
+                self.measurementLabel.text = newText
+            }
+            else {
+                self.measurementLabel.text = ""
             }
         }
     }
@@ -1291,7 +1296,7 @@ import ARKit
     }
     
     
-    private func getMeasureString(_ value: CGFloat) -> String{
+    private func getMeasureString(_ value: CGFloat) -> String {
         var unitsStr = "m"
         var distance = value
         
