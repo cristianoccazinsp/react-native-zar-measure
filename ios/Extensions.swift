@@ -136,8 +136,8 @@ extension ARPlaneAnchor {
 // Init these only once to avoid excessive calls and array creation
 let FLOAT_LAYOUT = MemoryLayout<Float>.size
 let VECTOR_WHITE : [Float] = [1.0, 1.0, 1.0]
-let VECTOR_YELLOW: [Float] = [0, 0, 1.0]
-let VECTOR_BLUE: [Float] = [1.0, 1.0, 0]
+let VECTOR_YELLOW: [Float] = [1.0, 1.0, 0]
+let VECTOR_BLUE: [Float] = [0, 0, 1.0]
 
 
 @available(iOS 13.4, *)

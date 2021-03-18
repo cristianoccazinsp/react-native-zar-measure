@@ -727,7 +727,7 @@ import ARKit
     
     // throttle some operations
     private var donutScaleTimeout = 0.05
-    private var donutScaleAnimation = 0.2
+    private var donutScaleAnimation = 0.25
     private var nodesScaleTimeout = 0.05
     private var closeNodeTimeout = 0.8
     private var donutLastScaled = TimeInterval(0)
@@ -1081,12 +1081,14 @@ import ARKit
             
             
             // throttle rotation changes to avoid odd effects
-            if (time - donutLastScaled > donutScaleTimeout) && targetNode != nil{
+            // for non plane hits, make delay even bigger, otherwise
+            // the donut may spin like crazy
+            if let _target = targetNode, let donutScaleMult = _result.anchor as? ARPlaneAnchor != nil ? 1.0 : 5.0, (time - donutLastScaled > (donutScaleTimeout * donutScaleMult)) {
                 
                 // Animate this so it looks nicer
                 SCNTransaction.begin()
                 SCNTransaction.animationDuration = donutScaleAnimation
-                targetNode?.setDonutScale(sceneView: sceneView, hitResult: _result)
+                _target.setDonutScale(sceneView: sceneView, hitResult: _result)
                 donutLastScaled = time
                 SCNTransaction.commit()
             }
