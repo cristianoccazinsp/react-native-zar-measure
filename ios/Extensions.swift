@@ -164,19 +164,19 @@ extension ARMeshClassification {
         }
     }
     
-    var vectorWhite: SCNVector3 {
-        return SCNVector3(x: 1, y: 1, z: 1)
+    var vectorWhite: [Float] {
+        return [1.0, 1.0, 1.0]
     }
     
-    var vectorBlue: SCNVector3 {
-        return SCNVector3(x: 0, y: 0, z: 1)
+    var vectorBlue: [Float] {
+        return [0, 0, 1.0]
     }
     
-    var vectorYellow: SCNVector3 {
-        return SCNVector3(x: 1, y: 1, z: 0)
+    var vectorYellow: [Float] {
+        return [1.0, 1.0, 0]
     }
     
-    var colorVector: SCNVector3 {
+    var colorVector: [Float] {
         switch self {
             case .ceiling: return vectorBlue
             case .door: return vectorWhite
@@ -191,6 +191,8 @@ extension ARMeshClassification {
     }
 }
 
+
+let FLOAT_LAYOUT = MemoryLayout<Float>.size
 
 @available(iOS 13.4, *)
 extension SCNGeometry {
@@ -222,19 +224,19 @@ extension SCNGeometry {
         
         if setColors {
             // calculate colors for each indivudal face, instead of the entire mesh
-            var colors: [SCNVector3] = []
+            var colors: [Float] = []
             for i in 0..<faces.count {
-                colors.append(meshGeometry.classificationOf(faceWithIndex: i).colorVector)
+                colors.append(contentsOf: meshGeometry.classificationOf(faceWithIndex: i).colorVector)
             }
             
-            let colorSource = SCNGeometrySource(data: NSData(bytes: colors, length: MemoryLayout<SCNVector3>.size * colors.count) as Data,
+            let colorSource = SCNGeometrySource(data: NSData(bytes: colors, length: FLOAT_LAYOUT * colors.count) as Data,
                 semantic: .color,
                 vectorCount: colors.count,
                 usesFloatComponents: true,
                 componentsPerVector: 3,
-                bytesPerComponent: MemoryLayout<Float>.size,
+                bytesPerComponent: FLOAT_LAYOUT,
                 dataOffset: 0,
-                dataStride: MemoryLayout<SCNVector3>.size
+                dataStride: FLOAT_LAYOUT * 3
             )
             
             geometry = SCNGeometry(sources: [vertexSource, normalsSource, colorSource], elements: [geometryElement])
