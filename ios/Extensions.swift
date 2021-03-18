@@ -133,6 +133,13 @@ extension ARPlaneAnchor {
 }
 
 
+// Init these only once to avoid excessive calls and array creation
+let FLOAT_LAYOUT = MemoryLayout<Float>.size
+let VECTOR_WHITE : [Float] = [1.0, 1.0, 1.0]
+let VECTOR_YELLOW: [Float] = [0, 0, 1.0]
+let VECTOR_BLUE: [Float] = [1.0, 1.0, 0]
+
+
 @available(iOS 13.4, *)
 extension ARMeshClassification {
     var description: String {
@@ -164,35 +171,20 @@ extension ARMeshClassification {
         }
     }
     
-    var vectorWhite: [Float] {
-        return [1.0, 1.0, 1.0]
-    }
-    
-    var vectorBlue: [Float] {
-        return [0, 0, 1.0]
-    }
-    
-    var vectorYellow: [Float] {
-        return [1.0, 1.0, 0]
-    }
-    
     var colorVector: [Float] {
         switch self {
-            case .ceiling: return vectorBlue
-            case .door: return vectorWhite
-            case .floor: return vectorBlue
-            case .seat: return vectorWhite
-            case .table: return vectorWhite
-            case .wall: return vectorYellow
-            case .window: return vectorWhite
-            case .none: return vectorWhite
-            @unknown default: return vectorWhite
+            case .ceiling: return VECTOR_BLUE
+            case .door: return VECTOR_WHITE
+            case .floor: return VECTOR_BLUE
+            case .seat: return VECTOR_WHITE
+            case .table: return VECTOR_WHITE
+            case .wall: return VECTOR_YELLOW
+            case .window: return VECTOR_WHITE
+            case .none: return VECTOR_WHITE
+            @unknown default: return VECTOR_WHITE
         }
     }
 }
-
-
-let FLOAT_LAYOUT = MemoryLayout<Float>.size
 
 @available(iOS 13.4, *)
 extension SCNGeometry {
