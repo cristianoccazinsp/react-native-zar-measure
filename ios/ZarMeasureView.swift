@@ -590,8 +590,9 @@ import ARKit
     // Must be called on UI thread
     func takePicture(_ path : String, completion: @escaping (String?, [MeasurementLine2D]) -> Void)
     {
-        if(!arReady || takingPicture){
-            completion("Not ready", [])
+        if takingPicture {
+            completion("Capture already in progress.", [])
+            return
         }
         
         lock.wait()
@@ -661,8 +662,9 @@ import ARKit
     // Must be called on UI thread
     func saveToFile(_ path : String, completion: @escaping (String?) -> Void)
     {
-        if(!arReady || takingPicture){
-            completion("Not ready")
+        if(takingPicture){
+            completion("Capture already in progress.")
+            return
         }
         
         lock.wait()
