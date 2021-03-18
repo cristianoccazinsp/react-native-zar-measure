@@ -382,12 +382,25 @@ class TextNode: SCNNode {
 }
 
 
+let PLANE_BORDER_SM =
+    "float u = _surface.diffuseTexcoord.x; \n" +
+    "float v = _surface.diffuseTexcoord.y; \n" +
+    "int u100 = int(u * 1000.0); \n" +
+    "int v100 = int(v * 1000.0); \n" +
+    "if (u100 % 100 == 0 || u100 % 100 == 99 || v100 % 100 == 0 || v100 % 100 == 99) { \n" +
+    "    // do nothing \n" +
+    "} else { \n" +
+    "    discard_fragment(); \n" +
+    "} \n"
+
 @available(iOS 13.0, *)
 class AnchorPlaneNode: SCNNode {
     let extentNode: SCNNode
     let sphereNode: SCNNode
+    let gridNode: SCNNode?
     
-    init(anchor: ARPlaneAnchor) {
+    
+    init(anchor: ARPlaneAnchor, grid: Bool = true) {
         
         let color = anchor.color
         
@@ -395,7 +408,7 @@ class AnchorPlaneNode: SCNNode {
         let extentPlane = SCNPlane(width: CGFloat(anchor.extent.x), height: CGFloat(anchor.extent.z))
         extentNode = SCNNode(geometry: extentPlane)
         extentNode.simdPosition = anchor.center
-        extentPlane.firstMaterial?.diffuse.contents = color.withAlphaComponent(0.5)
+        extentPlane.firstMaterial?.diffuse.contents = color.withAlphaComponent(0.4)
         extentNode.renderingOrder = -5
         
         // `SCNPlane` is vertically oriented in its local coordinate space, so
@@ -404,12 +417,29 @@ class AnchorPlaneNode: SCNNode {
         
         
         // to visualize the plane's center
-        let sphere = SCNSphere(radius: 0.006)
+        let sphere = SCNSphere(radius: 0.005)
         sphere.firstMaterial?.diffuse.contents = color
         
         sphereNode = SCNNode(geometry: sphere)
         sphereNode.simdPosition = anchor.center
         sphereNode.renderingOrder = -4
+        
+        // if grid node
+        if grid {
+            let gridPlane = SCNPlane(width: CGFloat(anchor.extent.x), height: CGFloat(anchor.extent.z))
+            gridPlane.firstMaterial?.diffuse.contents = color.withAlphaComponent(0.8)
+            gridPlane.firstMaterial?.shaderModifiers = [SCNShaderModifierEntryPoint.surface:PLANE_BORDER_SM]
+            
+            let _gridNode = SCNNode(geometry: gridPlane)
+            _gridNode.simdPosition = anchor.center
+            _gridNode.renderingOrder = -4
+            _gridNode.eulerAngles.x = -.pi / 2
+            
+            gridNode = _gridNode
+        }
+        else {
+            gridNode = nil
+        }
 
         super.init()
         self.name = "AnchorPlaneNode"
@@ -418,6 +448,11 @@ class AnchorPlaneNode: SCNNode {
         //addChildNode(geometryNode)
         addChildNode(extentNode)
         addChildNode(sphereNode)
+        
+        if gridNode != nil {
+            addChildNode(gridNode!)
+        }
+        
     }
     
     required init?(coder aDecoder: NSCoder) {
@@ -431,11 +466,20 @@ class AnchorPlaneNode: SCNNode {
         if let extentGeometry = extentNode.geometry as? SCNPlane {
             extentGeometry.width = CGFloat(anchor.extent.x)
             extentGeometry.height = CGFloat(anchor.extent.z)
-            extentGeometry.firstMaterial?.diffuse.contents = color.withAlphaComponent(0.5)
+            extentGeometry.firstMaterial?.diffuse.contents = color.withAlphaComponent(0.4)
             extentNode.simdPosition = anchor.center
         }
+        
+        if let _gridNode = gridNode, let gridGeometry = _gridNode.geometry as? SCNPlane {
+            gridGeometry.width = CGFloat(anchor.extent.x)
+            gridGeometry.height = CGFloat(anchor.extent.z)
+            gridGeometry.firstMaterial?.diffuse.contents = color.withAlphaComponent(0.8)
+            _gridNode.simdPosition = anchor.center
+        }
+        
         sphereNode.simdPosition = anchor.center
         sphereNode.geometry?.firstMaterial?.diffuse.contents = color
+        
     }
 }
 
