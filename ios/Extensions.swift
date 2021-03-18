@@ -134,10 +134,11 @@ extension ARPlaneAnchor {
 
 
 // Init these only once to avoid excessive calls and array creation
-let FLOAT_LAYOUT = MemoryLayout<Float>.size
-let VECTOR_WHITE : [Float] = [1.0, 1.0, 1.0]
-let VECTOR_YELLOW: [Float] = [1.0, 1.0, 0]
-let VECTOR_BLUE: [Float] = [0, 0, 1.0]
+let SIMD4_FLOAT_STRIDE = MemoryLayout<SIMD4<Float>>.stride
+let FLOAT_STRIDE = MemoryLayout<Float>.stride
+let VECTOR_WHITE : SIMD4<Float> = SIMD4<Float>(1.0, 1.0, 1.0, 1.0)
+let VECTOR_YELLOW: SIMD4<Float> = SIMD4<Float>(1.0, 1.0, 0, 1.0)
+let VECTOR_BLUE: SIMD4<Float> = SIMD4<Float>(0, 0, 1.0, 1.0)
 
 
 @available(iOS 13.4, *)
@@ -171,7 +172,7 @@ extension ARMeshClassification {
         }
     }
     
-    var colorVector: [Float] {
+    var colorVector: SIMD4<Float> {
         switch self {
             case .ceiling: return VECTOR_BLUE
             case .door: return VECTOR_WHITE
@@ -216,19 +217,21 @@ extension SCNGeometry {
         
         if setColors {
             // calculate colors for each indivudal face, instead of the entire mesh
-            var colors: [Float] = []
+            
+            var colors = [SIMD4<Float>]()
+            
             for i in 0..<faces.count {
-                colors.append(contentsOf: meshGeometry.classificationOf(faceWithIndex: i).colorVector)
+                colors.append(meshGeometry.classificationOf(faceWithIndex: i).colorVector)
             }
             
-            let colorSource = SCNGeometrySource(data: NSData(bytes: colors, length: FLOAT_LAYOUT * colors.count) as Data,
+            let colorSource = SCNGeometrySource(data: Data(bytes: &colors, count: colors.count * SIMD4_FLOAT_STRIDE),
                 semantic: .color,
                 vectorCount: colors.count,
                 usesFloatComponents: true,
-                componentsPerVector: 3,
-                bytesPerComponent: FLOAT_LAYOUT,
+                componentsPerVector: 4,
+                bytesPerComponent: FLOAT_STRIDE,
                 dataOffset: 0,
-                dataStride: FLOAT_LAYOUT * 3
+                dataStride: SIMD4_FLOAT_STRIDE
             )
             
             geometry = SCNGeometry(sources: [vertexSource, normalsSource, colorSource], elements: [geometryElement])
