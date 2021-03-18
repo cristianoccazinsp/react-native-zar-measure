@@ -284,17 +284,13 @@ class TargetNode: SCNNode {
             guard let anchoredNode = view.node(for: _anchor) else { return }
             
             // rotate our donut based on detected anchor
-            donut.eulerAngles.x = anchoredNode.eulerAngles.x
-            donut.eulerAngles.y = anchoredNode.eulerAngles.y
-            donut.eulerAngles.z = anchoredNode.eulerAngles.z
+            donut.rotation = anchoredNode.rotation
         }
         else{
             
             let dummy = SCNNode()
             dummy.transform = SCNMatrix4(hit.transform)
-            donut.eulerAngles.x = dummy.eulerAngles.x
-            donut.eulerAngles.y = dummy.eulerAngles.y
-            donut.eulerAngles.z = dummy.eulerAngles.z
+            donut.rotation = dummy.rotation
         }
     }
     
