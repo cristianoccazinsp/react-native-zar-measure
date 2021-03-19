@@ -36,6 +36,9 @@ RCT_EXTERN_METHOD(clearCurrent: (nonnull NSNumber *)node resolver: (RCTPromiseRe
 RCT_EXTERN_METHOD(removeLast: (nonnull NSNumber *)node clear:(nonnull NSString *)clear resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
 
 
+RCT_EXTERN_METHOD(resetWorld: (nonnull NSNumber *)node resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
+
+
 RCT_EXTERN_METHOD(removeMeasurement: (nonnull NSNumber *)node nodeId:(nonnull NSString *)nodeId resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
 
 

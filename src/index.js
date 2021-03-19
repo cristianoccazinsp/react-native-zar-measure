@@ -304,6 +304,18 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
   }
 
   /**
+   * Completely resets the AR world.
+   *
+   * Resolves {error: null or str}
+   */
+  async resetWorld(): {error: string} {
+    const handle = findNodeHandle(this._ref.current);
+    if(handle){
+      return await ZarMeasureModule.resetWorld(handle);
+    }
+  }
+
+  /**
    * Removes a measurement by id and returns its data or null if none
    *
    * Returns MeasurementLine or null if nothing was removed

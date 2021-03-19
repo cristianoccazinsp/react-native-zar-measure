@@ -124,6 +124,27 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
     
     
     @objc
+    func resetWorld(_ node:NSNumber, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    {
+        if #available(iOS 13, *) {
+            DispatchQueue.main.async { [weak self] in
+                
+                guard let view = self?.bridge.uiManager.view(forReactTag: node) as? ZarMeasureView else {
+                    resolve(["error": "Invalid View Tag"])
+                    return;
+                }
+                
+                let res = view.resetWorld()
+                resolve(["error": res])
+            }
+        }
+        else{
+            resolve(["error": "Not supported"])
+        }
+    }
+    
+    
+    @objc
     func removeMeasurement(_ node:NSNumber, nodeId:String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 13, *) {

@@ -298,6 +298,19 @@ import ARKit
         }
     }
     
+    func resetWorld() -> String? {
+        if takingPicture {
+            return "Capture in progres."
+        }
+        
+        clear("all", true)
+        clearHitTargets()
+        
+        toggleSession(true, true, true)
+        
+        return nil
+    }
+    
     func removeMeasurement(_ id:String) -> MeasurementLine?
     {
         if panNode != nil {
@@ -1021,7 +1034,7 @@ import ARKit
             targetNode = nil
             currentNode?.removeFromParentNode()
             currentNode = nil
-            cleanHitTargets()
+            clearHitTargets()
             
             lastHitResult = (nil, nil)
             return
@@ -1063,7 +1076,7 @@ import ARKit
         // and set/clear label
         lineNode?.removeFromParentNode()
         lineNode = nil
-        cleanHitTargets()
+        clearHitTargets()
         
         
         // update label in UI thread
@@ -1368,7 +1381,7 @@ import ARKit
                 targetNode = nil
                 lineNode?.removeFromParentNode()
                 lineNode = nil
-                cleanHitTargets()
+                clearHitTargets()
                 
             }
 
@@ -1408,7 +1421,7 @@ import ARKit
                     // we need to move all measurement group's
                     // based on user movement
                     
-                    cleanHitTargets()
+                    clearHitTargets()
                     
                     // some copy paste from renderer for now
                     // TODO: Improve this duplicated code
@@ -1546,11 +1559,11 @@ import ARKit
     
     
     // must be called on UI thread
-    private func toggleSession(_ on:Bool, _ reset: Bool = false){
+    private func toggleSession(_ on:Bool, _ reset: Bool = false, _ force: Bool = false){
         
         if(on){
-            // avoid starting it if it was running
-            if isRunning {
+            // avoid starting it if it was running, unless forcing it
+            if isRunning && !force {
                 return
             }
             
@@ -1808,7 +1821,7 @@ import ARKit
         }
     }
     
-    func cleanHitTargets() {
+    func clearHitTargets() {
         hitPlane?.removeFromParentNode()
         hitPlane = nil
         hitGeometry?.removeFromParentNode()
