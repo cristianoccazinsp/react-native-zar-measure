@@ -66,13 +66,17 @@ extension ARPlaneAnchor {
     }
     
     func toDict() -> JSARPlane {
-        let (topLeft, _, _, _) = worldPoints()
+        let center = worldCenter()
+        let normal = worldNormal()
         
         return [
             "id": getId(),
-            "x": topLeft.x,
-            "y": topLeft.y,
-            "z": topLeft.z,
+            "x": center.x,
+            "y": center.y,
+            "z": center.z,
+            "nx": normal.x,
+            "ny": normal.y,
+            "nz": normal.z,
             "width": extent.x,
             "height": extent.z,
             "vertical": alignment == .vertical
@@ -81,6 +85,61 @@ extension ARPlaneAnchor {
     
     func area() -> Float {
         return extent.x * extent.z
+    }
+    
+    // returns the plane's center world coordinates
+    func worldCenter() -> SCNVector3 {
+        
+        // Get world's updated center
+        let worldTransform = transform * translateTransform(center.x, 0, center.z)
+        
+        return SCNVector3(
+            x: worldTransform.columns.3.x,
+            y: worldTransform.columns.3.y,
+            z: worldTransform.columns.3.z
+        )
+    }
+    
+    // returns the plane's world normal based on two of its sides
+    func worldNormal() -> SCNVector3 {
+        
+        // duplicate code here so we don't do unnecessary transforms
+        let worldCenter = transform * translateTransform(center.x, 0, center.z)
+        
+        let width = extent.x
+        let height = extent.z
+
+        let topLeft = worldCenter * translateTransform(-width / 2.0, 0, -height / 2.0)
+        let bottomLeft = worldCenter * translateTransform(-width / 2.0, 0, height / 2.0)
+        
+        let vertex1 = simd_float3(
+            topLeft.columns.3.x,
+            topLeft.columns.3.y,
+            topLeft.columns.3.z
+        )
+        
+        let vertex2 = simd_float3(
+            bottomLeft.columns.3.x,
+            bottomLeft.columns.3.y,
+            bottomLeft.columns.3.z
+        )
+        
+        let vertex3 = simd_float3(
+            worldCenter.columns.3.x,
+            worldCenter.columns.3.y,
+            worldCenter.columns.3.z
+        )
+        
+        let vector1 = vertex3 - vertex1
+        let vector2 = vertex3 - vertex2
+        
+        let normal = simd_normalize(simd_cross(vector1, vector2))
+        
+        return SCNVector3(
+            x: normal.x,
+            y: normal.y,
+            z: normal.z
+        )
     }
     
     // returns all 4 world coordinates of the given plane

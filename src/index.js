@@ -216,10 +216,23 @@ type ARPlane = {
   // as planes change constantly, the plane associated to this ID may live only for a short period of time.
   id: string,
 
-  // x, y, z represent the plane's top-left vertex in the AR world
+  // x, y, z represent the plane's center vertex in the AR world
+  // remember that Y grows in the up direction (or decreases to gravity direction)
+  // whereas X and Z may depend on the initial coordinate system, with X growing east (right)
+  // and Z growing south (to the user)
   x: number,
   y: number,
   z: number,
+
+  // nX, nY, and nZ are the plane's normal vector world coordinates
+  // useful to see if two planes are perpendicular by checking
+  // (x1 * x2 + y1 * y2 + z1 * z2) ~= 0
+  nx: number,
+  ny: number,
+  nz: number,
+
+  // when horizontal, width is always the value of the X axis (and height the Z axis)
+  // while a vertical plane, height is parallel to gravity, and width is perpendicular
   width: number,
   height: number,
   vertical: boolean, // true if vertical, false if horizontal plane
