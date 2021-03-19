@@ -890,6 +890,11 @@ import ARKit
     }
     
     public func sessionInterruptionEnded(_ session: ARSession) {
+        
+        // try to recover from interruption.
+        // Sometimes it happens automatically, sometimes it doesn't
+        startCoach()
+        
         // if interruption ended and we had flash, try to turn it on again
         if torchOn {
             toggleTorch(true)
