@@ -1354,11 +1354,17 @@ import ARKit
             if panNode != nil {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
 
+                // remove plane ID from affected nodes so they are not reset
+                // on other operations
+                panMeasurement?.planeId = ""
+                
+                // clear target and line nodes and everything added by renderer
                 targetNode?.removeFromParentNode()
                 targetNode = nil
                 lineNode?.removeFromParentNode()
                 lineNode = nil
                 cleanHitTargets()
+                
             }
 
         } else if sender.state == .changed {
