@@ -80,6 +80,14 @@ type ZarMeasureViewProps = {
    */
   showHitMesh: boolean,
 
+  /**
+   * Allows pan gestures to move existing nodes. Triggered by long tapping on a node
+   * or on a text (to the left or right of it selects the closest node).
+   *
+   * default: true
+  */
+  allowPan: boolean,
+
   /** Units to render labels */
   units: 'm' | 'ft',
 
@@ -164,10 +172,18 @@ type ZarMeasureViewProps = {
   onPlaneTap(evt: {plane: ARPlane, location: {x: number, y: number}}):void,
 }
 
+
+type NodeAlignment = {
+  none: 0,
+  horizontal: 1,
+  vertical: 2
+}
+
 type MeasurementNode = {
   x: number,
   y: number,
-  z: number
+  z: number,
+  a: NodeAlignment, // if the node was created with a plane hit, it will include the alignment value
 }
 
 type MeasurementLine = {
@@ -226,6 +242,7 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     minDistanceCamera: 0.05,
     maxDistanceCamera: 5,
     intersectDistance: 0.1,
+    allowPan: true,
   }
 
   // ------ Consts ----------------
@@ -382,7 +399,7 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    * Returns existing rectangular (rough) planes currently detected in the world.
    *
    * minDimension: excludes planes whose dimensions (width or height) are less than this value (m)
-   * alignment: all | vertical | horizontal to filter by alignment
+   * alignment: all | vertical | horizontal , to filter by alignment
    */
   async getPlanes(minDimension=0, alignment='all') : [ARPlane] {
     const handle = findNodeHandle(this._ref.current);

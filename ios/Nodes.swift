@@ -27,6 +27,12 @@ public typealias MeasurementLine2D = Dictionary<String, Any>
 public typealias JSARPlane = Dictionary<String, Any>
 
 
+enum NodeAlignment : UInt8 {
+    case none = 0
+    case horizontal = 1
+    case vertical = 2
+}
+
 @available(iOS 13, *)
 class MeasurementGroup {
     var id : String
@@ -44,7 +50,9 @@ class MeasurementGroup {
         self.line = line
         self.text = text
         self.distance = Float(distance)
-        self.text.id = id
+        self.text.measureId = id
+        self.node1.measureId = id
+        self.node2.measureId = id
     }
     
     convenience init(_ planeId : String, _ node1:SphereNode, _ node2:SphereNode, _ line:LineNode, _ text:TextNode, _ distance:CGFloat){
@@ -66,12 +74,14 @@ class MeasurementGroup {
             "node1": [
                 "x": node1.worldPosition.x,
                 "y": node1.worldPosition.y,
-                "z": node1.worldPosition.z
+                "z": node1.worldPosition.z,
+                "a": node1.alignment.rawValue
             ],
             "node2": [
                 "x": node2.worldPosition.x,
                 "y": node2.worldPosition.y,
-                "z": node2.worldPosition.z
+                "z": node2.worldPosition.z,
+                "a": node1.alignment.rawValue
             ],
             "distance": self.distance,
             "label": self.text.label
@@ -105,7 +115,8 @@ class MeasurementGroup {
                 
                 res["node1"] = [
                     "x": projected1.x,
-                    "y": projected1.y
+                    "y": projected1.y,
+                    "a": node1.alignment.rawValue
                 ]
             }
             
@@ -113,7 +124,8 @@ class MeasurementGroup {
                 
                 res["node2"] = [
                     "x": projected2.x,
-                    "y": projected2.y
+                    "y": projected2.y,
+                    "a": node2.alignment.rawValue
                 ]
             }
             
@@ -175,9 +187,14 @@ class LineNode: SCNNode {
 
 @available(iOS 11.0, *)
 class SphereNode: SCNNode {
+    var alignment: NodeAlignment = .none
+    public var measureId : String?
     
-    init(at position: SCNVector3, color nodeColor: UIColor) {
+    init(at position: SCNVector3, color nodeColor: UIColor, alignment: NodeAlignment) {
         super.init()
+        
+        self.alignment = alignment
+        self.name = "spherenode"
         
         // material
         let material = SCNMaterial()
@@ -194,6 +211,20 @@ class SphereNode: SCNNode {
         self.geometry = sphere
         self.position = position
         self.renderingOrder = 0
+        
+        
+        // add a small invisible sphere that is bigger in order to
+        // receive hit tests
+        let hitSphere = SCNSphere(radius: 0.05)
+        let hitNode = SCNNode(geometry: hitSphere)
+        hitNode.isHidden = true
+        
+        let material2 = SCNMaterial()
+        material2.diffuse.contents = UIColor.red
+        material2.fillMode = .lines
+        hitSphere.firstMaterial = material2
+        
+        self.addChildNode(hitNode)
     }
     
     func setScale(sceneView view : ARSCNView){
@@ -213,7 +244,7 @@ class SphereNode: SCNNode {
 
 @available(iOS 13, *)
 class TargetNode: SCNNode {
-        
+    
     init(at position: SCNVector3, color nodeColor: UIColor) {
         super.init()
         
@@ -242,7 +273,7 @@ class TargetNode: SCNNode {
         sphere.firstMaterial = sphereMaterial
         
         let sphereNode = SCNNode(geometry: sphere)
-        sphereNode.name = "sphere"
+        sphereNode.name = "targetsphere"
         sphereNode.renderingOrder = 15
         self.addChildNode(sphereNode)
         
@@ -259,7 +290,7 @@ class TargetNode: SCNNode {
         if let color = nodeColor {
             self.childNode(withName: "donut", recursively: false)?.geometry?.firstMaterial?.diffuse.contents = color.withAlphaComponent(0.9)
             
-            self.childNode(withName: "sphere", recursively: false)?.geometry?.firstMaterial?.diffuse.contents = color
+            self.childNode(withName: "targetsphere", recursively: false)?.geometry?.firstMaterial?.diffuse.contents = color
         }
     }
     
@@ -267,7 +298,7 @@ class TargetNode: SCNNode {
         guard let pov = view.pointOfView else {
             return
         }
-        guard let sphere = self.childNode(withName: "sphere", recursively: false) else {
+        guard let sphere = self.childNode(withName: "targetsphere", recursively: false) else {
             return
         }
 
@@ -304,7 +335,7 @@ class TargetNode: SCNNode {
 class TextNode: SCNNode {
     
     private let extrusionDepth: CGFloat = 0.1
-    public var id : String?
+    public var measureId : String?
     public var label = ""
     
     init(between vectorA: SCNVector3, and vectorB: SCNVector3, textLabel label: String, textColor color: UIColor) {
@@ -346,7 +377,7 @@ class TextNode: SCNNode {
                                    max.y - min.y,
                                    max.z - min.z);
 
-        let plane = SCNPlane(width: CGFloat(bound.x + 4),
+        let plane = SCNPlane(width: CGFloat(bound.x + 6),
                             height: CGFloat(bound.y + 4))
         
         plane.cornerRadius = 4

@@ -45,7 +45,7 @@ extension ARRaycastResult {
 
 
 // helper to create a translation matrix
-func translateTransform(_ x: Float, _ y: Float, _ z: Float) -> float4x4 {
+public func translateTransform(_ x: Float, _ y: Float, _ z: Float) -> float4x4 {
     var tf = float4x4(diagonal: SIMD4<Float>(repeating: 1))
     tf.columns.3 = SIMD4<Float>(x: x, y: y, z: z, w: 1)
     return tf

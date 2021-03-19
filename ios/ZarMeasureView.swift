@@ -117,6 +117,7 @@ import ARKit
     @objc public var showHitPlane = false;
     @objc public var showHitGeometry = false;
     @objc public var showHitMesh = false;
+    @objc public var allowPan = true;
     
     @objc public var torchOn = false {
         willSet {
@@ -142,6 +143,10 @@ import ARKit
     // clear: all | points | planes
     func clear(_ clear:String, _ vibrate: Bool)
     {
+        if panNode != nil {
+            return
+        }
+        
         // Need to use locks since we are modifying the measurements collection
         lock.wait()
         defer {
@@ -198,6 +203,10 @@ import ARKit
     // removes the current measurement step, if any
     func clearCurrent()
     {
+        if panNode != nil {
+            return
+        }
+        
         lock.wait()
         defer {
             lock.signal()
@@ -218,6 +227,10 @@ import ARKit
     // clear: all | points | planes, same as clear
     func removeLast(_ clear:String)
     {
+        if panNode != nil {
+            return
+        }
+        
         lock.wait()
         defer {
             lock.signal()
@@ -287,6 +300,10 @@ import ARKit
     
     func removeMeasurement(_ id:String) -> MeasurementLine?
     {
+        if panNode != nil {
+            return nil
+        }
+        
         lock.wait()
         defer {
             lock.signal()
@@ -304,6 +321,10 @@ import ARKit
     
     func removePlane(_ planeId:String) -> [MeasurementLine]
     {
+        if panNode != nil {
+            return []
+        }
+        
         lock.wait()
         defer {
             lock.signal()
@@ -329,6 +350,10 @@ import ARKit
     
     func editMeasurement(_ id:String, _ text:String, _ clearPlane:Bool) -> MeasurementLine?
     {
+        if panNode != nil {
+            return nil
+        }
+        
         lock.wait()
         defer {
             lock.signal()
@@ -342,7 +367,7 @@ import ARKit
         node.text.removeFromParentNode()
         
         node.text = TextNode(between: node.node1.position, and: node.node2.position, textLabel: text, textColor: self.nodeColor)
-        node.text.id = node.id
+        node.text.measureId = node.id
         node.text.setScale(sceneView: self.sceneView)
         
         if clearPlane {
@@ -395,6 +420,10 @@ import ARKit
     // if setCurrent is true, sets the newly added point as the current one
     func addPoint(_ setCurrent : Bool) -> (String?, MeasurementLine?, CGFloat?)
     {
+        if panNode != nil {
+            return ("Node movement already in progress", nil, nil)
+        }
+        
         lock.wait()
         defer {
             lock.signal()
@@ -414,7 +443,13 @@ import ARKit
         
         
         // Makes a new sphere with the created method
-        let sphere = SphereNode(at: result.position, color: self.nodeColor)
+        var alignment = NodeAlignment.none
+        
+        if let anchor = result.anchor as? ARPlaneAnchor {
+            alignment = anchor.alignment == .vertical ? .vertical : .horizontal
+        }
+        
+        let sphere = SphereNode(at: result.position, color: self.nodeColor, alignment: alignment)
         sphere.setScale(sceneView: self.sceneView)
         
         // If we have a current node
@@ -440,6 +475,7 @@ import ARKit
             newLine.setScale(sceneView: self.sceneView, in: newText)
            
             let newMeasure = MeasurementGroup(current, sphere, newLine, newText, distance)
+            
             measurements.append(newMeasure)
             
             // add all objects to the scene
@@ -450,7 +486,7 @@ import ARKit
             // clear current node to allow new measurement
             if setCurrent{
                 // clone it
-                currentNode = SphereNode(at: sphere.position, color: self.nodeColor)
+                currentNode = SphereNode(at: sphere.position, color: self.nodeColor, alignment: sphere.alignment)
                 currentNode?.setScale(sceneView: self.sceneView)
                 self.rootNode.addChildNode(currentNode!)
             }
@@ -519,10 +555,10 @@ import ARKit
             
             var added : [MeasurementLine] = []
             
-            func addNode (_ planeId: String, _ point1: SCNVector3, _ point2: SCNVector3) {
+            func addNode (_ planeId: String, _ point1: SCNVector3, _ point2: SCNVector3, _ alignment: NodeAlignment) {
                 
-                let sphere1 = SphereNode(at: point1, color: self.nodeColor)
-                let sphere2 = SphereNode(at: point2, color: self.nodeColor)
+                let sphere1 = SphereNode(at: point1, color: self.nodeColor, alignment: alignment)
+                let sphere2 = SphereNode(at: point2, color: self.nodeColor, alignment: alignment)
                 let distance = point2.distance(to: point1)
                 
                 let text = TextNode(between: point1, and: point2, textLabel: self.getMeasureString(distance), textColor: self.nodeColor)
@@ -555,21 +591,22 @@ import ARKit
             
             let (topLeft, topRight, bottomLeft, bottomRight) = _plane.worldPoints()
             let planeId = _plane.getId()
+            let alignment : NodeAlignment = (_plane.alignment == .horizontal ? .horizontal : .vertical)
             
             if left {
-                addNode(planeId, topLeft, bottomLeft)
+                addNode(planeId, topLeft, bottomLeft, alignment)
             }
             
             if top {
-                addNode(planeId, topLeft, topRight)
+                addNode(planeId, topLeft, topRight, alignment)
             }
             
             if right {
-                addNode(planeId, topRight, bottomRight)
+                addNode(planeId, topRight, bottomRight, alignment)
             }
             
             if bottom {
-                addNode(planeId, bottomLeft, bottomRight)
+                addNode(planeId, bottomLeft, bottomRight, alignment)
             }
             
             if (vibrate && added.count > 0) {
@@ -735,6 +772,10 @@ import ARKit
     private var donutLastScaled = TimeInterval(0)
     private var nodesLastScaled = TimeInterval(0)
     private var closeNodeLastTime = TimeInterval(0)
+    
+    // For pan gestures
+    private var panNode: SphereNode? = nil
+    private var panMeasurement: MeasurementGroup? = nil
     
     // colors good enough for white surfaces
     private let nodeColor : UIColor = UIColor(red: 255/255.0, green: 153/255.0, blue: 0, alpha: 1)
@@ -975,17 +1016,17 @@ import ARKit
             targetNode = nil
             currentNode?.removeFromParentNode()
             currentNode = nil
-            hitPlane?.removeFromParentNode()
-            hitPlane = nil
-            hitGeometry?.removeFromParentNode()
-            hitGeometry = nil
-            hitMesh?.removeFromParentNode()
-            hitMesh = nil
+            cleanHitTargets()
             
             lastHitResult = (nil, nil)
             return
         }
         
+        // short circuit here if panning
+        if panNode != nil {
+            lastHitResult = (nil, nil)
+            return
+        }
         
         let (err, result) = doRayTestOnExistingPlanes(sceneCenter)
         var mustVibrate = false
@@ -1017,12 +1058,7 @@ import ARKit
         // and set/clear label
         lineNode?.removeFromParentNode()
         lineNode = nil
-        hitPlane?.removeFromParentNode()
-        hitPlane = nil
-        hitGeometry?.removeFromParentNode()
-        hitGeometry = nil
-        hitMesh?.removeFromParentNode()
-        hitMesh = nil
+        cleanHitTargets()
         
         
         // update label in UI thread
@@ -1059,6 +1095,7 @@ import ARKit
                     rootNode.addChildNode(_targetNode)
                     targetNode = _targetNode
                 }
+              
                 
                 if err == nil, let distance = targetNode?.distance(to: start) {
                     newText = getMeasureString(distance)
@@ -1190,7 +1227,7 @@ import ARKit
         // First try to hit against our text nodes
         // only if text tap was defined
         if onTextTap != nil {
-            let result = sceneView.hitTest(touchLocation, options: [SCNHitTestOption.searchMode: SCNHitTestSearchMode.all.rawValue, SCNHitTestOption.rootNode: rootNode])
+            let result = sceneView.hitTest(touchLocation, options: [SCNHitTestOption.searchMode: SCNHitTestSearchMode.all.rawValue, SCNHitTestOption.ignoreHiddenNodes: false, SCNHitTestOption.backFaceCulling: false, SCNHitTestOption.rootNode: rootNode])
             
             // search all results to see if we have a text node in one of our measurements
             // or ultimately a plane node
@@ -1210,7 +1247,7 @@ import ARKit
                 }
                 
                 if let _textNode = textNode {
-                    if let measurement = measurements.first(where: {_textNode.id == $0.id}){
+                    if let measurement = measurements.first(where: {_textNode.measureId == $0.id}){
                         onTextTap?(["measurement": measurement.toDict(), "location": ["x": touchLocation.x, "y": touchLocation.y]])
                         
                         if onTextTap != nil {
@@ -1240,6 +1277,210 @@ import ARKit
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 }
                 return
+            }
+        }
+    }
+    
+    @objc private func handleLongTap(sender: UIPanGestureRecognizer) {
+        if !allowPan {
+            return
+        }
+        
+        if !arReady {
+            return
+        }
+        
+        guard let sceneView = sender.view as? ARSCNView else {return}
+        
+        let location = sender.location(in: sceneView)
+        
+        
+        if sender.state == .began {
+            panMeasurement = nil
+            panNode = nil
+                        
+            // hit test and see if we get a sphere node to pan
+            
+            let result = sceneView.hitTest(location, options: [SCNHitTestOption.searchMode: SCNHitTestSearchMode.all.rawValue, SCNHitTestOption.ignoreHiddenNodes: false, SCNHitTestOption.backFaceCulling: false, SCNHitTestOption.rootNode: rootNode])
+            
+            // search all results to see if we have a text node in one of our measurements
+            for r in result {
+                
+                var sphereNode: SphereNode? = nil
+                var textNode: TextNode? = nil
+                
+                if r.node.name == "spherenode" {
+                    sphereNode = r.node as? SphereNode
+                }
+                else if r.node.parent?.name == "spherenode"{
+                    sphereNode = r.node.parent as? SphereNode
+                }
+                else if r.node.name == "textnode" {
+                    textNode = r.node as? TextNode
+                }
+                else if r.node.parent?.name == "textnode"{
+                    textNode = r.node.parent as? TextNode
+                }
+                else {
+                    continue
+                }
+                
+                // we may get a hit on the plane node, or text node
+                if let sphere = sphereNode {
+                    if let measurement = measurements.first(where: {sphere.measureId == $0.id}){
+                        panNode = sphere
+                        panMeasurement = measurement
+                                            
+                        break
+                    }
+                }
+                
+                else if let text = textNode {
+                    if let measurement = measurements.first(where: {text.measureId == $0.id}){
+                        panMeasurement = measurement
+                        
+                        if r.worldCoordinates.distance(to: measurement.node1.worldPosition) <= r.worldCoordinates.distance(to: measurement.node2.worldPosition) {
+                            panNode = measurement.node1
+                        }
+                        else {
+                            panNode = measurement.node2
+                        }
+                                            
+                        break
+                    }
+                }
+            }
+            
+            if panNode != nil {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+
+                targetNode?.removeFromParentNode()
+                targetNode = nil
+                lineNode?.removeFromParentNode()
+                lineNode = nil
+                cleanHitTargets()
+            }
+
+        } else if sender.state == .changed {
+            
+            if let node = panNode, let measurement = panMeasurement {
+                
+                // easy approach: Find a plane with the same alignment
+                // as the node, and hit test there to move the node there.
+                
+                // move hit location a bit up the thumb of the user
+                let queryLocation = CGPoint(
+                    x: location.x + 40,
+                    y: location.y - 40
+                )
+                
+                guard let query = sceneView.raycastQuery(from: queryLocation, allowing: .existingPlaneGeometry, alignment: node.alignment == .vertical ? .vertical : .horizontal) else {
+                    return
+                }
+                
+                var hitTest = sceneView.session.raycast(query)
+                
+                
+                // if no hits, give it another try
+                if hitTest.count == 0 {
+                    
+                    guard let query = sceneView.raycastQuery(from: queryLocation, allowing: .existingPlaneInfinite, alignment: node.alignment == .vertical ? .vertical : .horizontal) else{
+                        return
+                    }
+                    
+                    hitTest = sceneView.session.raycast(query)
+                }
+                
+                
+                if let result = hitTest.first {
+                    
+                    // we need to move all measurement group's
+                    // based on user movement
+                    
+                    cleanHitTargets()
+                    
+                    // some copy paste from renderer for now
+                    // TODO: Improve this duplicated code
+                    var transform = result.worldTransform
+                    
+                    if let anchor = result.anchor as? ARPlaneAnchor, let distance =  result.distanceFromCamera(sceneView) {
+                        
+                        let hitPos = SCNVector3.positionFrom(matrix: result.worldTransform)
+                        
+                        // make distance smaller for these fine movements
+                        let closeNode = findNearSphere(hitPos, intersectDistance * distance / 2, excluding: node)
+                        
+                        if let _close = closeNode {
+                            transform = _close.simdWorldTransform
+                        }
+                        
+                        // show/hide hit plane if configured
+                        if showHitPlane && closeNode == nil {
+                            if let node = sceneView.node(for: anchor) {
+                                
+                                let _hitPlane = AnchorPlaneNode(anchor: anchor)
+                                
+                                // add it not to root node, but rather the anchor's node
+                                node.addChildNode(_hitPlane)
+                                hitPlane = _hitPlane
+                            }
+                        }
+                        
+                        // show/hide hit plane if configured
+                        if showHitGeometry && closeNode == nil {
+                            if let node = sceneView.node(for: anchor) {
+                                
+                                let _hitGeometry = AnchorGeometryNode(anchor: anchor, in: sceneView)
+                                
+                                // add it not to root node, but rather the anchor's node
+                                node.addChildNode(_hitGeometry)
+                                hitGeometry = _hitGeometry
+                            }
+                        }
+                    }
+                    
+                    
+                    // need to re create these
+                    measurement.line.removeFromParentNode()
+                    measurement.text.removeFromParentNode()
+                    
+                    
+                    // set new location to our panned node
+                    // which should be either node1 or node 2
+                    // for sanity, make sure the nodes are the same
+                    if measurement.node1 == panNode {
+                        measurement.node1.simdWorldTransform = transform
+                    }
+                    else if measurement.node2 == panNode {
+                        measurement.node2.simdWorldTransform = transform
+                    }
+                    else {
+                        NSLog("Warning: Dragged node does not belong to measurement")
+                    }
+                    
+
+                    // update text and line nodes and values
+                    let distance = measurement.node1.position.distance(to: measurement.node2.position)
+                    
+                    measurement.text = TextNode(between: measurement.node1.position, and: measurement.node2.position, textLabel: self.getMeasureString(distance), textColor: self.nodeColor)
+                    
+                    measurement.text.measureId = measurement.id
+                    measurement.line = LineNode(from: measurement.node1.position, to:  measurement.node2.position, lineColor: self.textColor)
+                    
+                    measurement.node1.setScale(sceneView: sceneView)
+                    measurement.node2.setScale(sceneView: sceneView)
+                    measurement.text.setScale(sceneView: sceneView)
+                    measurement.line.setScale(sceneView: sceneView, in: measurement.text)
+                    rootNode.addChildNode(measurement.text)
+                    rootNode.addChildNode(measurement.line)
+                }
+                
+            }
+        } else if sender.state == .ended || sender.state == .cancelled || sender.state == .failed {
+            if panNode != nil {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                panNode = nil
+                panMeasurement = nil
             }
         }
     }
@@ -1310,6 +1551,8 @@ import ARKit
             arReady = false
             arStatus = "off"
             measuringStatus = "off"
+            panNode = nil
+            panMeasurement = nil
             
             // Add coaching view
             coachingView.delegate = self
@@ -1333,6 +1576,9 @@ import ARKit
             tapGestureRecognizer.cancelsTouchesInView = false
             self.sceneView.addGestureRecognizer(tapGestureRecognizer)
             
+            let longTapRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(handleLongTap))
+            sceneView.addGestureRecognizer(longTapRecognizer)
+            
             // only turn on torch if we were set to turn it on
             // otherwise we would call this unnecessarily.
             if(self.torchOn){
@@ -1349,7 +1595,8 @@ import ARKit
             coachingView.session = nil
             sceneView.delegate = nil
             sceneView.session.delegate = nil
-            
+            panNode = nil
+            panMeasurement = nil
             
             arReady = false
             arStatus = "off"
@@ -1512,6 +1759,18 @@ import ARKit
         return nil
     }
     
+    func findNearSphere(_ to : SCNVector3, _ minDistance:CGFloat, excluding: SphereNode) -> SphereNode? {
+        for m in measurements {
+            if m.node1 != excluding && m.node1.position.distance(to: to) < minDistance {
+                return m.node1
+            }
+            if m.node2 != excluding && m.node2.position.distance(to: to) < minDistance {
+                return m.node2
+            }
+        }
+        return nil
+    }
+    
     func toggleTorch(_ on: Bool){
         // delay torch and make sure it runs on the UI thread
         DispatchQueue.main.asyncAfter(deadline: .now() + (on ? 0.5 : 0.1)) {
@@ -1536,5 +1795,14 @@ import ARKit
                 NSLog("Torch is not available")
             }
         }
+    }
+    
+    func cleanHitTargets() {
+        hitPlane?.removeFromParentNode()
+        hitPlane = nil
+        hitGeometry?.removeFromParentNode()
+        hitGeometry = nil
+        hitMesh?.removeFromParentNode()
+        hitMesh = nil
     }
 }
