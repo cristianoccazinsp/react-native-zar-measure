@@ -74,7 +74,7 @@ type ZarMeasureViewProps = {
    * Check Constants.MESH_SUPPORTED to see if meshes are supported.
    *
    * NOTE: CURRENTLY NOT WORKING: ARKit does not return the hit anchor on raycasts right now.
-   * However, it is a good alternative to use
+   * However, it is a good alternative to use mesh hitting.
    *
    * default: false
    */
