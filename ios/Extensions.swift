@@ -68,6 +68,7 @@ extension ARPlaneAnchor {
     func toDict() -> JSARPlane {
         let center = worldCenter()
         let normal = worldNormal()
+        let (topLeft, topRight, bottomLeft, bottomRight) = worldPoints()
         
         return [
             "id": getId(),
@@ -77,6 +78,26 @@ extension ARPlaneAnchor {
             "nx": normal.x,
             "ny": normal.y,
             "nz": normal.z,
+            "topLeft": [
+                "x": topLeft.x,
+                "y": topLeft.y,
+                "z": topLeft.z,
+            ],
+            "topRight": [
+                "x": topRight.x,
+                "y": topRight.y,
+                "z": topRight.z,
+            ],
+            "bottomLeft": [
+                "x": bottomLeft.x,
+                "y": bottomLeft.y,
+                "z": bottomLeft.z,
+            ],
+            "bottomRight": [
+                "x": bottomRight.x,
+                "y": bottomRight.y,
+                "z": bottomRight.z,
+            ],
             "width": extent.x,
             "height": extent.z,
             "vertical": alignment == .vertical

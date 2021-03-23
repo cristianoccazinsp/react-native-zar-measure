@@ -233,6 +233,33 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
     
     
     @objc
+    func addLine(_ node:NSNumber, node1:CoordinatePoint, node2:CoordinatePoint, text:String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    {
+        if #available(iOS 13, *) {
+            DispatchQueue.main.async { [weak self] in
+                    
+                guard let view = self?.bridge.uiManager.view(forReactTag: node) as? ZarMeasureView else {
+                    resolve(["error": "Invalid View Tag"])
+                    return;
+                }
+                
+                let (err, measurement) = view.addLine(node1, node2, text)
+                
+                if(err == nil){
+                    resolve(["error": nil, "measurement": measurement])
+                }
+                else{
+                    resolve(["error": err!])
+                }
+            }
+        }
+        else{
+            resolve(["error": "Not supported"])
+        }
+    }
+    
+    
+    @objc
     func addPlane(_ node:NSNumber, planeId:String, left:Bool, top:Bool, right:Bool, bottom:Bool, setId:Bool, vibrate:Bool, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 13, *) {

@@ -186,6 +186,13 @@ type MeasurementNode = {
   a: NodeAlignment, // if the node was created with a plane hit, it will include the alignment value
 }
 
+
+type CoordinatePoint = {
+  x: number,
+  y: number,
+  z: number,
+}
+
 type MeasurementLine = {
   id: string,
   planeId: string, // if it was added as part of an add plane operation
@@ -208,15 +215,13 @@ type MeasurementLine2D = {
 /**
  * x, y coordinates are the plane's center relative to the (0, 0)
  * in the plane given its vertical or horizontal position
- *
- * TODO: Review if these positions are correct
  */
 type ARPlane = {
   // plane ID that may be used to perform other operations, not necessarily unique (up to ARKit)
   // as planes change constantly, the plane associated to this ID may live only for a short period of time.
   id: string,
 
-  // x, y, z represent the plane's center vertex in the AR world
+  // x, y, and z represent the plane's center vertex in the AR world
   // remember that Y grows in the up direction (or decreases to gravity direction)
   // whereas X and Z may depend on the initial coordinate system, with X growing east (right)
   // and Z growing south (to the user)
@@ -224,12 +229,18 @@ type ARPlane = {
   y: number,
   z: number,
 
-  // nX, nY, and nZ are the plane's normal vector world coordinates
+  // nx, ny, and ny are the plane's normal vector world coordinates (from the origin)
   // useful to see if two planes are perpendicular by checking
   // (x1 * x2 + y1 * y2 + z1 * z2) ~= 0
   nx: number,
   ny: number,
   nz: number,
+
+  // plane corners in world coordinates
+  topLeft: CoordinatePoint,
+  topRight: CoordinatePoint,
+  bottomLeft: CoordinatePoint,
+  bottomRight: CoordinatePoint,
 
   // when horizontal, width is always the value of the X axis (and height the Z axis)
   // while a vertical plane, height is parallel to gravity, and width is perpendicular
@@ -382,6 +393,22 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     const handle = findNodeHandle(this._ref.current);
     if(handle){
       return await ZarMeasureModule.addPoint(handle, setCurrent);
+    }
+    return {error: "View not available"};
+  }
+
+  /**
+   * Adds a new measurement line from 2 arbitrary points points.
+   * If you need plane info, use addPlane instead.
+   * Note: for invalid coordinate values, 0 will be used to prevent a hard crash
+   *
+   * node1, node2: x,y,z coordinates of the points
+   * text: overwrite the default distance text, empty by default
+   */
+  async addLine(node1: CoordinatePoint, node2: CoordinatePoint, text: string) : {error: string, measurement: MeasurementLine} {
+    const handle = findNodeHandle(this._ref.current);
+    if(handle){
+      return await ZarMeasureModule.addLine(handle, node1, node2, text || "");
     }
     return {error: "View not available"};
   }

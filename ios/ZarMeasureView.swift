@@ -519,7 +519,67 @@ import ARKit
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             return (nil, nil, result.distance)
         }
+    }
+    
+    
+    // Adds a new measurement line from two nodes
+    func addLine(_ node1:CoordinatePoint, _ node2:CoordinatePoint, _ text:String) -> (String?, MeasurementLine?)
+    {
+        if panNode != nil {
+            return ("Node movement already in progress", nil)
+        }
         
+        lock.wait()
+        defer {
+            lock.signal()
+        }
+        
+        let point1 = SCNVector3(
+            x: node1["x"] ?? 0,
+            y: node1["y"] ?? 0,
+            z: node1["z"] ?? 0
+        )
+        
+        let point2 = SCNVector3(
+            x: node2["x"] ?? 0,
+            y: node2["y"] ?? 0,
+            z: node2["z"] ?? 0
+        )
+        
+        let sphere1 = SphereNode(at: point1, color: self.nodeColor, alignment: .none)
+        let sphere2 = SphereNode(at: point2, color: self.nodeColor, alignment: .none)
+        let distance = point2.distance(to: point1)
+        
+        let label : String;
+        if text.isEmpty {
+            label = self.getMeasureString(distance)
+        }
+        else {
+            label = text
+        }
+        
+        let textNode = TextNode(between: point1, and: point2, textLabel: label, textColor: self.nodeColor)
+        
+        let line = LineNode(from: point1, to: point2, lineColor: self.textColor)
+       
+        let newMeasure = MeasurementGroup(sphere1, sphere2, line, textNode, distance)
+        
+        
+        measurements.append(newMeasure)
+        
+        // call sacale funs
+        sphere1.setScale(sceneView: self.sceneView)
+        sphere2.setScale(sceneView: self.sceneView)
+        textNode.setScale(sceneView: self.sceneView)
+        line.setScale(sceneView: self.sceneView, in: textNode)
+        
+        // add all objects to the scene
+        self.rootNode.addChildNode(sphere1)
+        self.rootNode.addChildNode(sphere2)
+        self.rootNode.addChildNode(line)
+        self.rootNode.addChildNode(textNode)
+        
+        return (nil, newMeasure.toDict())
     }
     
     

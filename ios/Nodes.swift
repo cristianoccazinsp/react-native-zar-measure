@@ -25,6 +25,7 @@ class HitResult {
 public typealias MeasurementLine = Dictionary<String, Any>
 public typealias MeasurementLine2D = Dictionary<String, Any>
 public typealias JSARPlane = Dictionary<String, Any>
+public typealias CoordinatePoint = Dictionary<String, Float>
 
 
 enum NodeAlignment : UInt8 {

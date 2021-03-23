@@ -51,6 +51,9 @@ RCT_EXTERN_METHOD(editMeasurement: (nonnull NSNumber *)node nodeId:(nonnull NSSt
 RCT_EXTERN_METHOD(addPoint: (nonnull NSNumber *)node setCurrent:(BOOL)setCurrent resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
 
 
+RCT_EXTERN_METHOD(addLine: (nonnull NSNumber *)node node1:(NSDictionary *)node1 node2:(NSDictionary *)node2 text:(nonnull NSString *)text resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
+
+
 RCT_EXTERN_METHOD(addPlane: (nonnull NSNumber *)node planeId:(nonnull NSString *)planeId left:(BOOL)left top:(BOOL)top right:(BOOL)right bottom:(BOOL)bottom setId:(BOOL)setId vibrate:(BOOL)vibrate resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
 
 
