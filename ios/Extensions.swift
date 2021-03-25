@@ -24,6 +24,21 @@ extension SCNVector3 {
         let column = matrix.columns.3
         return SCNVector3(column.x, column.y, column.z)
     }
+    
+    // helper to parse CoordinatePoint's NSNumber
+    // returns a vector or 0,0,0 if invalid
+    static func positionFrom(node: CoordinatePoint) -> SCNVector3 {
+        if let x = node["x"], let y = node["y"], let z = node["z"] {
+            return SCNVector3(
+                x: Float(truncating: x),
+                y: Float(truncating: y),
+                z: Float(truncating: z)
+            )
+        }
+        else {
+           return SCNVector3(x: 0, y: 0, z: 0)
+        }
+    }
 }
 
 

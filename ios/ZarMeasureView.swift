@@ -534,17 +534,9 @@ import ARKit
             lock.signal()
         }
         
-        let point1 = SCNVector3(
-            x: node1["x"] ?? 0,
-            y: node1["y"] ?? 0,
-            z: node1["z"] ?? 0
-        )
+        let point1 = SCNVector3.positionFrom(node: node1)
+        let point2 = SCNVector3.positionFrom(node: node2)
         
-        let point2 = SCNVector3(
-            x: node2["x"] ?? 0,
-            y: node2["y"] ?? 0,
-            z: node2["z"] ?? 0
-        )
         
         let sphere1 = SphereNode(at: point1, color: self.nodeColor, alignment: .none)
         let sphere2 = SphereNode(at: point2, color: self.nodeColor, alignment: .none)

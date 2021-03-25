@@ -3,6 +3,12 @@ import UIKit
 import ARKit
 
 
+public typealias MeasurementLine = Dictionary<String, Any>
+public typealias MeasurementLine2D = Dictionary<String, Any>
+public typealias JSARPlane = Dictionary<String, Any>
+public typealias CoordinatePoint = Dictionary<String, NSNumber> // JS may send doubles
+
+
 @available(iOS 13, *)
 class HitResult {
     // wrapper for hit results
@@ -22,17 +28,12 @@ class HitResult {
 }
 
 
-public typealias MeasurementLine = Dictionary<String, Any>
-public typealias MeasurementLine2D = Dictionary<String, Any>
-public typealias JSARPlane = Dictionary<String, Any>
-public typealias CoordinatePoint = Dictionary<String, Float>
-
-
 enum NodeAlignment : UInt8 {
     case none = 0
     case horizontal = 1
     case vertical = 2
 }
+
 
 @available(iOS 13, *)
 class MeasurementGroup {
