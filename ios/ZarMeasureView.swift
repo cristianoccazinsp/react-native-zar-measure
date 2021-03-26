@@ -522,6 +522,66 @@ import ARKit
     }
     
     
+    // Adds a new dummy point (if add) where both nodes are in the same location
+    // in the current hit location
+    func addDummyPoint(_ add: Bool, _ text:String, _ planeId:String) -> (String?, MeasurementLine?, CGFloat?)
+    {
+        if panNode != nil {
+            return ("Node movement already in progress", nil, nil)
+        }
+        
+        lock.wait()
+        defer {
+            lock.signal()
+        }
+        
+        let (er, resultx) = self.lastHitResult
+        
+        defer {
+            // clear hit results on adding point so we refresh existing nodes
+            // due to some shapes needing to change
+            self.lastHitResult = (nil, nil)
+        }
+        
+        guard let result = resultx else {
+            return (er, nil, nil)
+        }
+        
+        
+        // Makes a new sphere with the created method
+        var alignment = NodeAlignment.none
+        
+        if let anchor = result.anchor as? ARPlaneAnchor {
+            alignment = anchor.alignment == .vertical ? .vertical : .horizontal
+        }
+        
+        let sphere = SphereNode(at: result.position, color: self.nodeColor, alignment: alignment)
+        sphere.setScale(sceneView: self.sceneView)
+        
+        let newText = TextNode(between: sphere.position, and: sphere.position, textLabel: text, textColor: self.nodeColor)
+        newText.setScale(sceneView: self.sceneView)
+        
+        let newLine = LineNode(from: sphere.position, to: sphere.position, lineColor: self.textColor)
+        newLine.setScale(sceneView: self.sceneView, in: newText)
+       
+        let newMeasure = MeasurementGroup(planeId, sphere, sphere, newLine, newText, 0)
+        
+        if add {
+        
+            measurements.append(newMeasure)
+            
+            // add all objects to the scene
+            self.rootNode.addChildNode(sphere)
+            self.rootNode.addChildNode(newLine)
+            self.rootNode.addChildNode(newText)
+                
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        }
+        
+        return (nil, newMeasure.toDict(), result.distance)
+    }
+    
+    
     // Adds a new measurement line from two nodes
     func addLine(_ node1:CoordinatePoint, _ node2:CoordinatePoint, _ text:String) -> (String?, MeasurementLine?)
     {
@@ -1423,10 +1483,6 @@ import ARKit
             
             if panNode != nil {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
-
-                // remove plane ID from affected nodes so they are not reset
-                // on other operations
-                panMeasurement?.planeId = ""
                 
                 // clear target and line nodes and everything added by renderer
                 targetNode?.removeFromParentNode()

@@ -400,6 +400,26 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
   }
 
   /**
+   * Similar to addPoint, but adds a dummy measurement with distance 0 and
+   * the two nodes set to the same current hit location.
+   *
+   * add: whether or not to actually add the node
+   * label: custom label for the node
+   * planeId: assign a planeId to treat the nodes as a plane node
+   *
+   * Useful to add marks or labels to the AR world while keeping undo operations,
+   * or to simply get the current hit location.
+   *
+   */
+  async addDummyPoint(add=true, text='', planeId='') : {error: string, measurement: MeasurementLine, cameraDistance: number} {
+    const handle = findNodeHandle(this._ref.current);
+    if(handle){
+      return await ZarMeasureModule.addDummyPoint(handle, add, text, planeId);
+    }
+    return {error: "View not available"};
+  }
+
+  /**
    * Adds a new measurement line from 2 arbitrary points points.
    * If you need plane info, use addPlane instead.
    * Note: for invalid coordinate values, 0 will be used to prevent a hard crash

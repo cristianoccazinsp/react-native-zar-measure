@@ -233,6 +233,34 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
     
     
     @objc
+    func addDummyPoint(_ node:NSNumber, add: Bool, text:String, planeId:String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    {
+        if #available(iOS 13, *) {
+            DispatchQueue.main.async { [weak self] in
+                
+                guard let view = self?.bridge.uiManager.view(forReactTag: node) as? ZarMeasureView else {
+                    resolve(["error": "Invalid View Tag"])
+                    return;
+                }
+                
+                let (err, measurement, cameraDistance) = view.addDummyPoint(add, text, planeId)
+                
+                if(err == nil){
+                    resolve(["error": nil, "measurement": measurement,
+                             "cameraDistance": cameraDistance])
+                }
+                else{
+                    resolve(["error": err!])
+                }
+            }
+        }
+        else{
+            resolve(["error": "Not supported"])
+        }
+    }
+    
+    
+    @objc
     func addLine(_ node:NSNumber, node1:CoordinatePoint, node2:CoordinatePoint, text:String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 13, *) {
