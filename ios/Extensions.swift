@@ -4,13 +4,21 @@ import ARKit
 
 
 extension SCNNode {
-    
     // Gets distance between two SCNNodes in meters
     func distance(to destination: SCNNode) -> CGFloat {
         return position.distance(to: destination.position)
     }
 }
 
+extension CGFloat {
+    // Gets distance between two SCNNodes in meters
+    static func round_decimal(_ value: CGFloat, _ decimals: Int) -> CGFloat {
+        let s = CGFloat(NSDecimalNumber(decimal: pow(10.0, decimals)).floatValue)
+        var mult = (value * s)
+        mult.round(.toNearestOrAwayFromZero)
+        return (mult) / s
+    }
+}
 
 extension SCNVector3 {
     func distance(to destination: SCNVector3) -> CGFloat {

@@ -1702,16 +1702,27 @@ import ARKit
     
     
     private func getMeasureString(_ value: CGFloat) -> String {
-        var unitsStr = "m"
-        var distance = value
-        
         if(self.units == "ft"){
-            distance = value * 3.28084
-            unitsStr = "ft"
+            // get cm
+            let cm = value * 100.0
+            
+            let v = cm / 30.48
+            let v_inch = v.truncatingRemainder(dividingBy: 1.0) * 12
+            let feet = floor(v)
+            let inch = round(v_inch)
+            
+            if feet < 1 {
+                return "\(String(format: "%.0f", inch))''"
+            }
+            if inch == 0 {
+                return "\(String(format: "%.0f", feet))'"
+            }
+            return "\(String(format: "%.0f", feet))' \(String(format: "%.0f", inch))''"
         }
-
-        let formatted = String(format: "%.2f", distance)
-        return "\(formatted) \(unitsStr)"
+        else {
+            let formatted = String(format: "%.2f", value)
+            return "\(formatted) m"
+        }
     }
     
     private func showMeasure(_ value: CGFloat) {
