@@ -1720,7 +1720,7 @@ import ARKit
             return "\(String(format: "%.0f", feet))' \(String(format: "%.0f", inch))''"
         }
         else {
-            let formatted = String(format: "%.2f", value)
+            let formatted = String(format: "%.2f", CGFloat.round_decimal(value, 2))
             return "\(formatted) m"
         }
     }

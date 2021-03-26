@@ -388,6 +388,8 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    *
    * measurement.distance: distance in meters (regarldess of unit)
    * cameraDistance: camera distance in meters
+   *
+   * Note: distance set in labels automatically are always rounded to 2 decimals.
    */
   async addPoint(setCurrent=false) : {error: string, measurement: MeasurementLine, cameraDistance: number} {
     const handle = findNodeHandle(this._ref.current);
