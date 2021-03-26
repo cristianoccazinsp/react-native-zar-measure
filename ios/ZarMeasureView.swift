@@ -456,13 +456,7 @@ import ARKit
         
         
         // Makes a new sphere with the created method
-        var alignment = NodeAlignment.none
-        
-        if let anchor = result.anchor as? ARPlaneAnchor {
-            alignment = anchor.alignment == .vertical ? .vertical : .horizontal
-        }
-        
-        let sphere = SphereNode(at: result.position, color: self.nodeColor, alignment: alignment)
+        let sphere = SphereNode(at: result.position, color: self.nodeColor, alignment: result.alignment)
         sphere.setScale(sceneView: self.sceneView)
         
         // If we have a current node
@@ -549,13 +543,7 @@ import ARKit
         
         
         // Makes a new sphere with the created method
-        var alignment = NodeAlignment.none
-        
-        if let anchor = result.anchor as? ARPlaneAnchor {
-            alignment = anchor.alignment == .vertical ? .vertical : .horizontal
-        }
-        
-        let sphere = SphereNode(at: result.position, color: self.nodeColor, alignment: alignment)
+        let sphere = SphereNode(at: result.position, color: self.nodeColor, alignment: result.alignment)
         sphere.setScale(sceneView: self.sceneView)
         
         let newText = TextNode(between: sphere.position, and: sphere.position, textLabel: text, textColor: self.nodeColor)

@@ -17,6 +17,7 @@ class HitResult {
     var anchor : ARAnchor? = nil
     var position : SCNVector3
     var isCloseNode : Bool
+    var alignment: NodeAlignment // aproximate alignment from raycast result
     
     init(_ distance:CGFloat, _ hitPos:SCNVector3, _ closeNode:Bool, _ raycast:ARRaycastResult){
         self.distance = distance
@@ -24,6 +25,29 @@ class HitResult {
         self.anchor = raycast.anchor //as? ARPlaneAnchor
         self.position = hitPos
         self.isCloseNode = closeNode
+        
+        
+        // if anchor is available, use it right away
+        if let anchor = raycast.anchor as? ARPlaneAnchor {
+            self.alignment = anchor.alignment == .vertical ? .vertical : .horizontal
+        }
+        
+        // else, use Y rotation value
+        // apropximate: close to 0 is vertical
+        // close to 1 is horizontal
+        else {
+            let ry = abs(self.transform.columns.1.y)
+            
+            if ry <= 0.15 {
+                self.alignment = .vertical
+            }
+            else if ry >= 0.85 {
+                self.alignment = .horizontal
+            }
+            else {
+                self.alignment = .none
+            }
+        }
     }
 }
 
@@ -312,7 +336,7 @@ class TargetNode: SCNNode {
     func setDonutScale(sceneView view : ARSCNView, hitResult hit: HitResult){
         
         guard let donut = self.childNode(withName: "donut", recursively: false) else {return}
-        
+                
         if let _anchor = hit.anchor {
             guard let anchoredNode = view.node(for: _anchor) else { return }
             
