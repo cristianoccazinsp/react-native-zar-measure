@@ -18,6 +18,7 @@ RCT_EXPORT_VIEW_PROPERTY(showMeshes, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(showHitPlane, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(showHitGeometry, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(showHitMesh, BOOL)
+RCT_EXPORT_VIEW_PROPERTY(strictPlanes, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(allowPan, BOOL)
 
 RCT_EXPORT_VIEW_PROPERTY(onARStatusChange, RCTDirectEventBlock)
@@ -63,7 +64,7 @@ RCT_EXTERN_METHOD(addPlane: (nonnull NSNumber *)node planeId:(nonnull NSString *
 RCT_EXTERN_METHOD(getMeasurements: (nonnull NSNumber *)node resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
 
 
-RCT_EXTERN_METHOD(getPlanes: (nonnull NSNumber *)node minDimension:(nonnull NSNumber *)minDimension alignment:(nonnull NSString *)alignment resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
+RCT_EXTERN_METHOD(getPlanes: (nonnull NSNumber *)node minDimension:(nonnull NSNumber *)minDimension alignment:(nonnull NSString *)alignment strict:(BOOL)strict resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)
 
 
 RCT_EXTERN_METHOD(takePicture: (nonnull NSNumber *)node imagePath:(NSString*)imagePath resolver: (RCTPromiseResolveBlock)resolve rejecter: (RCTPromiseRejectBlock)reject)

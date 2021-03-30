@@ -59,6 +59,22 @@ import ARKit
         }
     }
     
+    @objc public var strictPlanes = false {
+        willSet {
+            // if turning off strict planes, set all anchors visible
+            // as render call will not do that.
+            if !newValue && strictPlanes {
+                if let anchors = sceneView.session.currentFrame?.anchors {
+                    for anchor in anchors {
+                        if let node = sceneView.node(for: anchor), let _ = anchor as? ARPlaneAnchor {
+                            node.isHidden = false
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
     @objc public var showGeometry = false {
         willSet {
             if showGeometry != newValue {
@@ -405,7 +421,16 @@ import ARKit
         }
     }
     
-    func getPlanes(_ minDimension: Float, _ alignment: String) -> [JSARPlane]{
+    func planeIsStrict(_ planeAnchor:ARPlaneAnchor) -> Bool {
+        switch(planeAnchor.classification) {
+        case .ceiling, .floor, .wall:
+            return true
+        default:
+            return false
+        }
+    }
+    
+    func getPlanes(_ minDimension: Float, _ alignment: String, _ strict: Bool) -> [JSARPlane]{
         if let anchors = sceneView.session.currentFrame?.anchors {
             
             var res : [MeasurementLine] = []
@@ -416,7 +441,16 @@ import ARKit
                 // let node = sceneView.node(for: anchor)
                 if let planeAnchor = anchor as? ARPlaneAnchor {
                     if planeAnchor.extent.x >= minDimension && planeAnchor.extent.z >= minDimension && (planeAnchor.alignment == .horizontal && horizontal || planeAnchor.alignment == .vertical && vertical) {
+                        
+                        if strict {
+                            if planeIsStrict(planeAnchor) {
+                                res.append(planeAnchor.toDict())
+                            }
+                        }
+                        else {
                             res.append(planeAnchor.toDict())
+                        }
+                            
                     }
                 }
             }
@@ -1024,7 +1058,7 @@ import ARKit
 
         if(showPlanes){
             // Place content only for anchors found by plane detection.
-            if let planeAnchor = anchor as? ARPlaneAnchor{
+            if let planeAnchor = anchor as? ARPlaneAnchor {
                 // Create a node to visualize the plane's bounding rectangle.
                 // Create a custom object to visualize the plane geometry and extent.
                 let plane = AnchorPlaneNode(anchor: planeAnchor)
@@ -1102,6 +1136,18 @@ import ARKit
         
         if(takingPicture){
             return
+        }
+        
+        // process ARPlane anchors if strict mode
+        // if not strict, our willSet will handle it
+        if (strictPlanes) {
+            if let anchors = sceneView.session.currentFrame?.anchors {
+                for anchor in anchors {
+                    if let node = sceneView.node(for: anchor), let planeAnchor = anchor as? ARPlaneAnchor {
+                        node.isHidden = !planeIsStrict(planeAnchor)
+                    }
+                }
+            }
         }
         
         // these always need to be updated

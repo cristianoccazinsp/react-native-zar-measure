@@ -50,6 +50,18 @@ type ZarMeasureViewProps = {
   showMeshes: boolean,
 
   /**
+   * if true, showPlanes and showGeometry only shows values for
+   * walls, ceiling, and floor are displayed.
+   *
+   * Note: changing this variable in real time may not yield correct results.
+   *
+   * Query PLANE_CLASS_SUPPORTED to check if plane classification is supported
+   *
+   * default: false
+  */
+ strictPlanes: boolean,
+
+  /**
    * If true, will draw the plane of the current hit target result
    *
    * default: false
@@ -277,6 +289,9 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
 
     /** true if the device also supports high detail Meshes */
     MESH_SUPPORTED: Consts.MESH_SUPPORTED,
+
+    /** true if plane classification is supported */
+    PLANE_CLASS_SUPPORTED: Consts.MESH_SUPPORTED,
   }
 
 
@@ -474,11 +489,13 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    *
    * minDimension: excludes planes whose dimensions (width or height) are less than this value (m)
    * alignment: all | vertical | horizontal , to filter by alignment
+   *
+   * strict: same as strictPlanes, only get walls, ceilings, and floors.
    */
-  async getPlanes(minDimension=0, alignment='all') : [ARPlane] {
+  async getPlanes(minDimension=0, alignment='all', strict=false) : [ARPlane] {
     const handle = findNodeHandle(this._ref.current);
     if(handle){
-      return await ZarMeasureModule.getPlanes(handle, minDimension, alignment);
+      return await ZarMeasureModule.getPlanes(handle, minDimension, alignment, strict);
     }
     return [];
   }

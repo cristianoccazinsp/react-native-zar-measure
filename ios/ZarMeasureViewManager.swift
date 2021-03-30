@@ -9,6 +9,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
     // MARK: RN Setup and Constants
     private var _supportsAR = false
     private var _supportsMesh = false
+    private var _supports_plane_class = false
     private var _previewUrl : URL? = nil
     private var _previewResolve : RCTPromiseResolveBlock? = nil
     
@@ -28,9 +29,13 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
         if #available(iOS 13, *) {
             _supportsMesh = ZarMeasureView.SUPPORTS_MESH
         }
+        if #available(iOS 12, *) {
+            _supports_plane_class = ARPlaneAnchor.isClassificationSupported
+        }
         return [
             "AR_SUPPORTED": _supportsAR,
-            "MESH_SUPPORTED": _supportsMesh
+            "MESH_SUPPORTED": _supportsMesh,
+            "PLANE_CLASS_SUPPORTED": _supports_plane_class
         ]
     }
     
@@ -335,7 +340,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
     
     
     @objc
-    func getPlanes(_ node:NSNumber, minDimension: NSNumber, alignment: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
+    func getPlanes(_ node:NSNumber, minDimension: NSNumber, alignment: String, strict: Bool, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) -> Void
     {
         if #available(iOS 13, *) {
             DispatchQueue.main.async { [weak self] in
@@ -345,7 +350,7 @@ class ZarMeasureViewManager: RCTViewManager, QLPreviewControllerDataSource, QLPr
                     return;
                 }
                 
-                resolve(view.getPlanes(Float(truncating: minDimension), alignment))
+                resolve(view.getPlanes(Float(truncating: minDimension), alignment, strict))
             }
         }
         else{
