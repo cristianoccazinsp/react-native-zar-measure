@@ -15,8 +15,6 @@ Pod::Spec.new do |s|
   s.source_files = "ios/**/*.{h,m,swift}"
 
   s.swift_version = '5.3'
-
-  s.frameworks = 'UIKit'
   s.dependency "React"
 end
 
