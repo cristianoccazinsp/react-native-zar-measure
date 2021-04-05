@@ -61,6 +61,16 @@ type ZarMeasureViewProps = {
   */
  strictPlanes: boolean,
 
+ /**
+   * if true, the second measuring node (to form a measurement) will only
+   * hit against the first node's Plane anchor, if any.
+   *
+   * Useful to measure behind objects.
+   *
+   * default: false
+  */
+ stickyPlanes: boolean,
+
   /**
    * If true, will draw the plane of the current hit target result
    *

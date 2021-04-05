@@ -75,6 +75,8 @@ import ARKit
         }
     }
     
+    @objc public var stickyPlanes = false
+    
     @objc public var showGeometry = false {
         willSet {
             if showGeometry != newValue {
@@ -490,7 +492,9 @@ import ARKit
         
         // Makes a new sphere with the created method
         let sphere = SphereNode(at: result.position, color: self.nodeColor, alignment: result.alignment)
+        sphere.anchor = result.planeAnchor
         sphere.setScale(sceneView: self.sceneView)
+        
         
         // If we have a current node
         if let current = currentNode {
@@ -528,6 +532,7 @@ import ARKit
                 // clone it
                 currentNode = SphereNode(at: sphere.position, color: self.nodeColor, alignment: sphere.alignment)
                 currentNode?.setScale(sceneView: self.sceneView)
+                currentNode?.anchor = sphere.anchor
                 self.rootNode.addChildNode(currentNode!)
             }
             else {
@@ -578,6 +583,7 @@ import ARKit
         // Makes a new sphere with the created method
         let sphere = SphereNode(at: result.position, color: self.nodeColor, alignment: result.alignment)
         sphere.setScale(sceneView: self.sceneView)
+        sphere.anchor = result.planeAnchor
         
         let newText = TextNode(between: sphere.position, and: sphere.position, textLabel: text, textColor: self.nodeColor)
         newText.setScale(sceneView: self.sceneView)
@@ -704,7 +710,11 @@ import ARKit
             func addNode (_ planeId: String, _ point1: SCNVector3, _ point2: SCNVector3, _ alignment: NodeAlignment) {
                 
                 let sphere1 = SphereNode(at: point1, color: self.nodeColor, alignment: alignment)
+                sphere1.anchor = _plane
+                
                 let sphere2 = SphereNode(at: point2, color: self.nodeColor, alignment: alignment)
+                sphere2.anchor = _plane
+                
                 let distance = point2.distance(to: point1)
                 
                 let text = TextNode(between: point1, and: point2, textLabel: self.getMeasureString(distance), textColor: self.nodeColor)
@@ -1824,19 +1834,25 @@ import ARKit
         let cameraPos = SCNVector3.positionFrom(matrix: cameraTransform)
         var hitTest : [ARRaycastResult]
         
-        // try highest presicion plane first
-        guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneGeometry, alignment: .any) else{
+        // if sticky and enough info info
+        if stickyPlanes, let _current = currentNode, let _anchor = _current.anchor {
             
-            // this should never happen
-            return ("Detection failed.", nil)
+            guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneInfinite, alignment: _anchor.alignment == .vertical ? .vertical : .horizontal) else{
+                
+                // this should never happen
+                return ("Detection failed.", nil)
+            }
+            
+            hitTest = sceneView.session.raycast(query).filter({ (ar) -> Bool in
+                if let _a = ar.anchor as? ARPlaneAnchor {
+                    return _a.identifier == _anchor.identifier
+                }
+                return false
+            })
         }
-        
-        hitTest = sceneView.session.raycast(query)
-        
-        // if hit test count is 0, try with an estimated and then an infinite plane
-        // this matches more the native app, and prevents us from getting lots of error messages
-        if hitTest.count == 0 {
-            guard let query = sceneView.raycastQuery(from: location, allowing: .estimatedPlane, alignment: .any) else{
+        else {
+            // try highest precision plane first
+            guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneGeometry, alignment: .any) else{
                 
                 // this should never happen
                 return ("Detection failed.", nil)
@@ -1844,14 +1860,26 @@ import ARKit
             
             hitTest = sceneView.session.raycast(query)
             
+            // if hit test count is 0, try with an estimated and then an infinite plane
+            // this matches more the native app, and prevents us from getting lots of error messages
             if hitTest.count == 0 {
-                guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneInfinite, alignment: .any) else{
+                guard let query = sceneView.raycastQuery(from: location, allowing: .estimatedPlane, alignment: .any) else{
                     
                     // this should never happen
                     return ("Detection failed.", nil)
                 }
                 
                 hitTest = sceneView.session.raycast(query)
+                
+                if hitTest.count == 0 {
+                    guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneInfinite, alignment: .any) else{
+                        
+                        // this should never happen
+                        return ("Detection failed.", nil)
+                    }
+                    
+                    hitTest = sceneView.session.raycast(query)
+                }
             }
         }
         
@@ -1884,8 +1912,14 @@ import ARKit
         let distance = cameraPos.distance(to: hitPos)
         let closeNode = findNearSphere(hitPos, intersectDistance * distance)
             
-        let result = HitResult(distance, closeNode?.position ?? hitPos, closeNode != nil, raycastResult)
+        let result : HitResult;
         
+        if let _close = closeNode {
+            result = HitResult(distance, _close)
+        }
+        else {
+            result = HitResult(distance, hitPos, false, raycastResult)
+        }
         
         if(result.distance < self.minDistanceCamera){
             return ("Make sure you are not too close to the surface, or improve lightning conditions.", nil)

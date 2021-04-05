@@ -19,6 +19,13 @@ class HitResult {
     var isCloseNode : Bool
     var alignment: NodeAlignment // aproximate alignment from raycast result
     
+    // Shorthand for plane anchors
+    var planeAnchor : ARPlaneAnchor? {
+        get {
+            return self.anchor as? ARPlaneAnchor
+        }
+    }
+    
     init(_ distance:CGFloat, _ hitPos:SCNVector3, _ closeNode:Bool, _ raycast:ARRaycastResult){
         self.distance = distance
         self.transform = raycast.worldTransform
@@ -48,6 +55,16 @@ class HitResult {
                 self.alignment = .none
             }
         }
+    }
+    
+    // initializer for close node detection
+    init(_ distance:CGFloat, _ closeNode: SphereNode){
+        self.distance = distance
+        self.alignment = closeNode.alignment
+        self.transform = simd_float4x4(closeNode.worldTransform)
+        self.anchor = closeNode.anchor
+        self.position = closeNode.position
+        self.isCloseNode = true
     }
 }
 
@@ -213,8 +230,11 @@ class LineNode: SCNNode {
 
 @available(iOS 11.0, *)
 class SphereNode: SCNNode {
+    var measureId : String?
     var alignment: NodeAlignment = .none
-    public var measureId : String?
+    
+    // to be set for sticky planes
+    var anchor: ARPlaneAnchor? = nil
     
     init(at position: SCNVector3, color nodeColor: UIColor, alignment: NodeAlignment) {
         super.init()
@@ -361,8 +381,8 @@ class TargetNode: SCNNode {
 class TextNode: SCNNode {
     
     private let extrusionDepth: CGFloat = 0.1
-    public var measureId : String?
-    public var label = ""
+    var measureId : String?
+    var label = ""
     
     init(between vectorA: SCNVector3, and vectorB: SCNVector3, textLabel label: String, textColor color: UIColor) {
         super.init()
