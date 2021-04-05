@@ -1849,12 +1849,32 @@ import ARKit
                 }
                 return false
             })
+            
+            // if we got no results, fallback to geometry hit test
+            // as the plane anchor may have been lost.
+            // but don't fall back to feature detection
+            if hitTest.count == 0 {
+                guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneGeometry, alignment: .any) else{
+                    
+                    return ("Detection failed.", nil)
+                }
+                
+                hitTest = sceneView.session.raycast(query)
+                
+                if hitTest.count == 0 {
+                    guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneInfinite, alignment: .any) else{
+                        
+                        return ("Detection failed.", nil)
+                    }
+                    
+                    hitTest = sceneView.session.raycast(query)
+                }
+            }
         }
         else {
             // try highest precision plane first
             guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneGeometry, alignment: .any) else{
                 
-                // this should never happen
                 return ("Detection failed.", nil)
             }
             
@@ -1865,7 +1885,6 @@ import ARKit
             if hitTest.count == 0 {
                 guard let query = sceneView.raycastQuery(from: location, allowing: .estimatedPlane, alignment: .any) else{
                     
-                    // this should never happen
                     return ("Detection failed.", nil)
                 }
                 
@@ -1874,7 +1893,6 @@ import ARKit
                 if hitTest.count == 0 {
                     guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneInfinite, alignment: .any) else{
                         
-                        // this should never happen
                         return ("Detection failed.", nil)
                     }
                     
