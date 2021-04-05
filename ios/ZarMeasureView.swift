@@ -132,7 +132,6 @@ import ARKit
     
     @objc public var showHitPlane = false;
     @objc public var showHitGeometry = false;
-    @objc public var showHitMesh = false;
     @objc public var allowPan = true;
     
     @objc public var torchOn = false {
@@ -1320,21 +1319,6 @@ import ARKit
                 }
             }
             
-            // show/hide hit plane if configured
-            
-            if showHitMesh && !closeNode {
-                if #available(iOS 13.4, *){
-                    if let anchor = result?.anchor as? ARMeshAnchor, let node = sceneView.node(for: anchor) {
-                        
-                        let _hitMesh = AnchorMeshNode(anchor: anchor)
-                        
-                        // add it not to root node, but rather the anchor's node
-                        node.addChildNode(_hitMesh)
-                        hitMesh = _hitMesh
-                    }
-                }
-            }
-            
             // vibration on close changes
             if mustVibrate {
                 DispatchQueue.main.async {
@@ -1540,7 +1524,15 @@ import ARKit
                     y: location.y - 40
                 )
                 
-                guard let query = sceneView.raycastQuery(from: queryLocation, allowing: .existingPlaneGeometry, alignment: node.alignment == .vertical ? .vertical : .horizontal) else {
+                let alignment : ARRaycastQuery.TargetAlignment
+                
+                switch (node.alignment) {
+                case .horizontal: alignment = .horizontal
+                case .vertical: alignment = .vertical
+                default: alignment = .any
+                }
+                
+                guard let query = sceneView.raycastQuery(from: queryLocation, allowing: .existingPlaneGeometry, alignment: alignment) else {
                     return
                 }
                 
@@ -1550,7 +1542,7 @@ import ARKit
                 // if no hits, give it another try
                 if hitTest.count == 0 {
                     
-                    guard let query = sceneView.raycastQuery(from: queryLocation, allowing: .existingPlaneInfinite, alignment: node.alignment == .vertical ? .vertical : .horizontal) else{
+                    guard let query = sceneView.raycastQuery(from: queryLocation, allowing: .existingPlaneInfinite, alignment: alignment) else{
                         return
                     }
                     
@@ -1832,42 +1824,18 @@ import ARKit
         let cameraPos = SCNVector3.positionFrom(matrix: cameraTransform)
         var hitTest : [ARRaycastResult]
         
-        // standard case, where we hit against planes
-        if !showHitMesh {
-            // try highest presicion plane first
-            guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneGeometry, alignment: .any) else{
-                
-                // this should never happen
-                return ("Detection failed.", nil)
-            }
+        // try highest presicion plane first
+        guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneGeometry, alignment: .any) else{
             
-            hitTest = sceneView.session.raycast(query)
-            
-            // if hit test count is 0, try with an estimated and then an infinite plane
-            // this matches more the native app, and prevents us from getting lots of error messages
-            if hitTest.count == 0 {
-                guard let query = sceneView.raycastQuery(from: location, allowing: .estimatedPlane, alignment: .any) else{
-                    
-                    // this should never happen
-                    return ("Detection failed.", nil)
-                }
-                
-                hitTest = sceneView.session.raycast(query)
-                
-                if hitTest.count == 0 {
-                    guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneInfinite, alignment: .any) else{
-                        
-                        // this should never happen
-                        return ("Detection failed.", nil)
-                    }
-                    
-                    hitTest = sceneView.session.raycast(query)
-                }
-            }
+            // this should never happen
+            return ("Detection failed.", nil)
         }
         
-        // if we have set to hit meshes, use estimated planes only
-        else {
+        hitTest = sceneView.session.raycast(query)
+        
+        // if hit test count is 0, try with an estimated and then an infinite plane
+        // this matches more the native app, and prevents us from getting lots of error messages
+        if hitTest.count == 0 {
             guard let query = sceneView.raycastQuery(from: location, allowing: .estimatedPlane, alignment: .any) else{
                 
                 // this should never happen
@@ -1875,6 +1843,16 @@ import ARKit
             }
             
             hitTest = sceneView.session.raycast(query)
+            
+            if hitTest.count == 0 {
+                guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneInfinite, alignment: .any) else{
+                    
+                    // this should never happen
+                    return ("Detection failed.", nil)
+                }
+                
+                hitTest = sceneView.session.raycast(query)
+            }
         }
         
             

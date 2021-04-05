@@ -75,23 +75,6 @@ type ZarMeasureViewProps = {
    */
   showHitGeometry: boolean,
 
-   /**
-   * If true, will draw the mesh of the current hit target result
-   *
-   * NOTE: Setting this, will change the way hit testing works from planes to mesh / estimated planes.
-   * so regular geometry/planes will rarely hit.
-   *
-   * Setting this to true and any plane/geometry at the same time would be an error.
-   *
-   * Check Constants.MESH_SUPPORTED to see if meshes are supported.
-   *
-   * NOTE: CURRENTLY NOT WORKING: ARKit does not return the hit anchor on raycasts right now.
-   * However, it is a good alternative to use mesh hitting.
-   *
-   * default: false
-   */
-  showHitMesh: boolean,
-
   /**
    * Allows pan gestures to move existing nodes. Triggered by long tapping on a node
    * or on a text (to the left or right of it selects the closest node).
