@@ -1295,7 +1295,8 @@ import ARKit
             // throttle rotation changes to avoid odd effects
             // for non plane hits, make delay even bigger, otherwise
             // the donut may spin like crazy
-            if let _target = targetNode, let donutScaleMult = _result.anchor as? ARPlaneAnchor != nil ? 1.0 : 5.0, (time - donutLastScaled > (donutScaleTimeout * donutScaleMult)) {
+            // unless it is a close node, since we want the right position immediately
+            if let _target = targetNode, let donutScaleMult = _result.anchor as? ARPlaneAnchor != nil ? 1.0 : 5.0, (time - donutLastScaled > (donutScaleTimeout * donutScaleMult)) || closeNode {
                 
                 // Animate this so it looks nicer
                 SCNTransaction.begin()
@@ -1527,6 +1528,7 @@ import ARKit
                 
                 // easy approach: Find a plane with the same alignment
                 // as the node, and hit test there to move the node there.
+                // If sticky planes, also enforce the same plane ID
                 
                 // move hit location a bit up the thumb of the user
                 let queryLocation = CGPoint(
@@ -1542,21 +1544,41 @@ import ARKit
                 default: alignment = .any
                 }
                 
-                guard let query = sceneView.raycastQuery(from: queryLocation, allowing: .existingPlaneGeometry, alignment: alignment) else {
-                    return
+                var hitTest : [ARRaycastResult] = []
+                
+                // if sticky, try to find the related anchor
+                if stickyPlanes, let _anchor = node.anchor {
+                    
+                    guard let query = sceneView.raycastQuery(from: queryLocation, allowing: .existingPlaneInfinite, alignment: alignment) else {
+                        return
+                    }
+                    
+                    hitTest = sceneView.session.raycast(query).filter({ (ar) -> Bool in
+                        if let _a = ar.anchor as? ARPlaneAnchor {
+                            return _a.identifier == _anchor.identifier
+                        }
+                        return false
+                    })
                 }
                 
-                var hitTest = sceneView.session.raycast(query)
-                
-                
-                // if no hits, give it another try
+                // if not sticky, or sticky found nothing
                 if hitTest.count == 0 {
                     
-                    guard let query = sceneView.raycastQuery(from: queryLocation, allowing: .existingPlaneInfinite, alignment: alignment) else{
+                    guard let query = sceneView.raycastQuery(from: queryLocation, allowing: .existingPlaneGeometry, alignment: alignment) else {
                         return
                     }
                     
                     hitTest = sceneView.session.raycast(query)
+                    
+                    // if no hits, give it another try
+                    if hitTest.count == 0 {
+                        
+                        guard let query = sceneView.raycastQuery(from: queryLocation, allowing: .existingPlaneInfinite, alignment: alignment) else{
+                            return
+                        }
+                        
+                        hitTest = sceneView.session.raycast(query)
+                    }
                 }
                 
                 
@@ -1837,12 +1859,20 @@ import ARKit
         // if sticky and enough info info
         if stickyPlanes, let _current = currentNode, let _anchor = _current.anchor {
             
-            guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneInfinite, alignment: _anchor.alignment == .vertical ? .vertical : .horizontal) else{
+            let alignment : ARRaycastQuery.TargetAlignment
+            
+            switch (_anchor.alignment) {
+                case .horizontal: alignment = .horizontal
+                case .vertical: alignment = .vertical
+                default: alignment = .any
+            }
+            
+            guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneInfinite, alignment: alignment) else {
                 
-                // this should never happen
                 return ("Detection failed.", nil)
             }
             
+            // filter results by our anchor value
             hitTest = sceneView.session.raycast(query).filter({ (ar) -> Bool in
                 if let _a = ar.anchor as? ARPlaneAnchor {
                     return _a.identifier == _anchor.identifier
@@ -1854,7 +1884,7 @@ import ARKit
             // as the plane anchor may have been lost.
             // but don't fall back to feature detection
             if hitTest.count == 0 {
-                guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneGeometry, alignment: .any) else{
+                guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneGeometry, alignment: alignment) else {
                     
                     return ("Detection failed.", nil)
                 }
@@ -1862,7 +1892,7 @@ import ARKit
                 hitTest = sceneView.session.raycast(query)
                 
                 if hitTest.count == 0 {
-                    guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneInfinite, alignment: .any) else{
+                    guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneInfinite, alignment: alignment) else {
                         
                         return ("Detection failed.", nil)
                     }
@@ -1872,6 +1902,7 @@ import ARKit
             }
         }
         else {
+            
             // try highest precision plane first
             guard let query = sceneView.raycastQuery(from: location, allowing: .existingPlaneGeometry, alignment: .any) else{
                 
