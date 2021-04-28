@@ -656,4 +656,3 @@ const NativeZarMeasureView = requireNativeComponent("ZarMeasureView", ZarMeasure
   nativeOnly: {
   }
 });
-
