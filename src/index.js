@@ -1,15 +1,20 @@
-import React from "react";
-import { requireNativeComponent, NativeModules, ViewStyle, Platform,
-  PermissionsAndroid, Text, SafeAreaView, findNodeHandle
- } from "react-native";
+import React from 'react';
+import {
+  requireNativeComponent,
+  NativeModules,
+  ViewStyle,
+  Platform,
+  PermissionsAndroid,
+  Text,
+  SafeAreaView,
+  findNodeHandle,
+} from 'react-native';
 
-
-const ZarMeasureModule = NativeModules.ZarMeasureViewManager || NativeModules.ZarMeasureModule;
+const ZarMeasureModule =
+  NativeModules.ZarMeasureViewManager || NativeModules.ZarMeasureModule;
 const Consts = ZarMeasureModule.getConstants();
 
-
 type ZarMeasureViewProps = {
-
   style: ViewStyle,
 
   /** Android permissions rationale */
@@ -17,7 +22,7 @@ type ZarMeasureViewProps = {
     title: string,
     message: string,
     buttonPositive: string,
-    buttonNegative: string
+    buttonNegative: string,
   },
 
   /** View to render while auth is pending */
@@ -30,14 +35,14 @@ type ZarMeasureViewProps = {
    * if set to true, draws planes in the scene. These are raw estimates of shapes
    *
    * default: false
-  */
+   */
   showPlanes: boolean,
 
   /**
    * if set to true, draws geometry in the scene. These are higher accuracy shapes
    *
    * default: false
-  */
+   */
   showGeometry: boolean,
 
   /**
@@ -46,7 +51,7 @@ type ZarMeasureViewProps = {
    * Check Constants.MESH_SUPPORTED to see if meshes are supported.
    *
    * default: false
-  */
+   */
   showMeshes: boolean,
 
   /**
@@ -58,18 +63,18 @@ type ZarMeasureViewProps = {
    * Query PLANE_CLASS_SUPPORTED to check if plane classification is supported
    *
    * default: false
-  */
- strictPlanes: boolean,
+   */
+  strictPlanes: boolean,
 
- /**
+  /**
    * if true, the second measuring node (to form a measurement) will only
    * hit against the first node's Plane anchor, if any.
    *
    * Useful to measure behind objects.
    *
    * default: false
-  */
- stickyPlanes: boolean,
+   */
+  stickyPlanes: boolean,
 
   /**
    * If true, will draw the plane of the current hit target result
@@ -90,7 +95,7 @@ type ZarMeasureViewProps = {
    * or on a text (to the left or right of it selects the closest node).
    *
    * default: true
-  */
+   */
   allowPan: boolean,
 
   /** Units to render labels */
@@ -137,7 +142,7 @@ type ZarMeasureViewProps = {
    * Callback fired when authorization has changed
    *
    * authorized: true if auth was given, false otherwise
-  */
+   */
   onCameraStatusChange(authorized): void,
 
   /**
@@ -148,55 +153,56 @@ type ZarMeasureViewProps = {
    * off: undefined, not used
    * loading: AR is working on setting the inital world, and help messages are being shown
    * ready: AR is ready to measure
-  */
-  onARStatusChange(evt: {status: string}):void,
+   */
+  onARStatusChange(evt: {status: string}): void,
 
   /**
    * Fired when tracking is working, but measuring is not possible
    *
    * status: off | ready | error
    * info: string with error details
-  */
-  onMeasuringStatusChange(evt: {status: string}):void,
+   */
+  onMeasuringStatusChange(evt: {status: string}): void,
 
   /** Fired if there was a camera mount error */
-  onMountError(err: { message: string }): void,
+  onMountError(err: {message: string}): void,
 
   /**
    * Called when a measurement label is tapped.
    *
    * location: screen tap location
    */
-  onTextTap(evt: {measurement: MeasurementLine, location: {x: number, y: number}}):void,
+  onTextTap(evt: {
+    measurement: MeasurementLine,
+    location: {x: number, y: number},
+  }): void,
 
   /**
    * Called when a detected plane is tapped
    *
    * location: screen tap location
    */
-  onPlaneTap(evt: {plane: ARPlane, location: {x: number, y: number}}):void,
-}
-
+  onPlaneTap(evt: {plane: ARPlane, location: {x: number, y: number}}): void,
+};
 
 type NodeAlignment = {
   none: 0,
   horizontal: 1,
-  vertical: 2
-}
+  vertical: 2,
+};
 
 type MeasurementNode = {
   x: number,
   y: number,
   z: number,
   a: NodeAlignment, // if the node was created with a plane hit, it will include the alignment value
-}
-
+};
 
 type CoordinatePoint = {
   x: number,
   y: number,
   z: number,
-}
+};
 
 type MeasurementLine = {
   id: string,
@@ -204,8 +210,8 @@ type MeasurementLine = {
   node1: MeasurementNode,
   node2: MeasurementNode,
   label: String, // text node label
-  distance: number // in meters
-}
+  distance: number, // in meters
+};
 
 type MeasurementLine2D = {
   id: string,
@@ -214,8 +220,8 @@ type MeasurementLine2D = {
   node2: MeasurementNode,
   label: String, // text node label
   bounds: {width: number, height: number}, // image bounds
-  distance: number // in meters in 3rd world
-}
+  distance: number, // in meters in 3rd world
+};
 
 /**
  * x, y coordinates are the plane's center relative to the (0, 0)
@@ -252,27 +258,34 @@ type ARPlane = {
   width: number,
   height: number,
   vertical: boolean, // true if vertical, false if horizontal plane
-}
+};
 
 export const androidCameraPermissionOptions = {
   title: 'Permission to use camera',
   message: 'We need your permission to use your camera.',
   buttonPositive: 'Ok',
   buttonNegative: 'Cancel',
-}
+};
 
-
-export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>{
+export default class ZarMeasureView extends React.Component<ZarMeasureViewProps> {
   static defaultProps = {
     androidCameraPermissionOptions: androidCameraPermissionOptions,
-    pendingAuthorizationView: <SafeAreaView><Text>Loading...</Text></SafeAreaView>,
-    notAuthorizedView: <SafeAreaView><Text>Not Authorized</Text></SafeAreaView>,
+    pendingAuthorizationView: (
+      <SafeAreaView>
+        <Text>Loading...</Text>
+      </SafeAreaView>
+    ),
+    notAuthorizedView: (
+      <SafeAreaView>
+        <Text>Not Authorized</Text>
+      </SafeAreaView>
+    ),
     units: 'm',
     minDistanceCamera: 0.05,
     maxDistanceCamera: 5,
     intersectDistance: 0.1,
     allowPan: true,
-  }
+  };
 
   // ------ Consts ----------------
 
@@ -285,8 +298,7 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
 
     /** true if plane classification is supported */
     PLANE_CLASS_SUPPORTED: Consts.MESH_SUPPORTED,
-  }
-
+  };
 
   // ------ Public methods --------
 
@@ -299,9 +311,9 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    *
    * vibrate: disables vibration if false
    */
-  async clear(clear="all", vibrate=true){
+  async clear(clear = 'all', vibrate = true) {
     const handle = findNodeHandle(this._ref.current);
-    if(handle){
+    if (handle) {
       await ZarMeasureModule.clear(handle, clear, vibrate);
     }
   }
@@ -309,9 +321,9 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
   /**
    * Clears the current measuring step, if any.
    */
-  async clearCurrent(){
+  async clearCurrent() {
     const handle = findNodeHandle(this._ref.current);
-    if(handle){
+    if (handle) {
       await ZarMeasureModule.clearCurrent(handle);
     }
   }
@@ -328,9 +340,9 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    *
    * in every case, the current active node (if any) will be cleared first and the operation stopped.
    */
-  async removeLast(clear="all"){
+  async removeLast(clear = 'all') {
     const handle = findNodeHandle(this._ref.current);
-    if(handle){
+    if (handle) {
       await ZarMeasureModule.removeLast(handle, clear);
     }
   }
@@ -342,7 +354,7 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    */
   async resetWorld(): {error: string} {
     const handle = findNodeHandle(this._ref.current);
-    if(handle){
+    if (handle) {
       return await ZarMeasureModule.resetWorld(handle);
     }
   }
@@ -352,9 +364,9 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    *
    * Returns MeasurementLine or null if nothing was removed
    */
-  async removeMeasurement(id) : MeasurementLine {
+  async removeMeasurement(id): MeasurementLine {
     const handle = findNodeHandle(this._ref.current);
-    if(handle){
+    if (handle) {
       return await ZarMeasureModule.removeMeasurement(handle, id);
     }
   }
@@ -364,9 +376,9 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    *
    * Returns [MeasurementLine] for each removed line
    */
-  async removePlane(planeId) : [MeasurementLine] {
+  async removePlane(planeId): [MeasurementLine] {
     const handle = findNodeHandle(this._ref.current);
-    if(handle){
+    if (handle) {
       return await ZarMeasureModule.removePlane(handle, planeId);
     }
   }
@@ -378,10 +390,15 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    *
    * Returns updated node, or null if node wasn't found.
    */
-  async editMeasurement(id, text, clearPlane=true) : MeasurementLine {
+  async editMeasurement(id, text, clearPlane = true): MeasurementLine {
     const handle = findNodeHandle(this._ref.current);
-    if(handle){
-      return await ZarMeasureModule.editMeasurement(handle, id, text, clearPlane);
+    if (handle) {
+      return await ZarMeasureModule.editMeasurement(
+        handle,
+        id,
+        text,
+        clearPlane,
+      );
     }
   }
 
@@ -399,12 +416,14 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    *
    * Note: distance set in labels automatically are always rounded to 2 decimals.
    */
-  async addPoint(setCurrent=false) : {error: string, measurement: MeasurementLine, cameraDistance: number} {
+  async addPoint(
+    setCurrent = false,
+  ): {error: string, measurement: MeasurementLine, cameraDistance: number} {
     const handle = findNodeHandle(this._ref.current);
-    if(handle){
+    if (handle) {
       return await ZarMeasureModule.addPoint(handle, setCurrent);
     }
-    return {error: "View not available"};
+    return {error: 'View not available'};
   }
 
   /**
@@ -419,12 +438,16 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    * or to simply get the current hit location.
    *
    */
-  async addDummyPoint(add=true, text='', planeId='') : {error: string, measurement: MeasurementLine, cameraDistance: number} {
+  async addDummyPoint(
+    add = true,
+    text = '',
+    planeId = '',
+  ): {error: string, measurement: MeasurementLine, cameraDistance: number} {
     const handle = findNodeHandle(this._ref.current);
-    if(handle){
+    if (handle) {
       return await ZarMeasureModule.addDummyPoint(handle, add, text, planeId);
     }
-    return {error: "View not available"};
+    return {error: 'View not available'};
   }
 
   /**
@@ -435,12 +458,16 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    * node1, node2: x,y,z coordinates of the points
    * text: overwrite the default distance text, empty by default
    */
-  async addLine(node1: CoordinatePoint, node2: CoordinatePoint, text: string) : {error: string, measurement: MeasurementLine} {
+  async addLine(
+    node1: CoordinatePoint,
+    node2: CoordinatePoint,
+    text: string,
+  ): {error: string, measurement: MeasurementLine} {
     const handle = findNodeHandle(this._ref.current);
-    if(handle){
-      return await ZarMeasureModule.addLine(handle, node1, node2, text || "");
+    if (handle) {
+      return await ZarMeasureModule.addLine(handle, node1, node2, text || '');
     }
-    return {error: "View not available"};
+    return {error: 'View not available'};
   }
 
   /**
@@ -457,21 +484,37 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    * setId: sets the plane ID to the added measurements so they can be referenced later. Set to false
    * to skip it from calls that affect plane measurements.
    */
-  async addPlane(id='', left=true, top=true, right=true, bottom=true, setId=true, vibrate=false)
-   : {error: string, plane: ARPlane, measurements: [MeasurementLine]} {
+  async addPlane(
+    id = '',
+    left = true,
+    top = true,
+    right = true,
+    bottom = true,
+    setId = true,
+    vibrate = false,
+  ): {error: string, plane: ARPlane, measurements: [MeasurementLine]} {
     const handle = findNodeHandle(this._ref.current);
-    if(handle){
-      return await ZarMeasureModule.addPlane(handle, id, left, top, right, bottom, setId, vibrate);
+    if (handle) {
+      return await ZarMeasureModule.addPlane(
+        handle,
+        id,
+        left,
+        top,
+        right,
+        bottom,
+        setId,
+        vibrate,
+      );
     }
-    return {error: "View not available"};
+    return {error: 'View not available'};
   }
 
   /**
    * Returns all existing measurements on screen
    */
-  async getMeasurements() : [MeasurementLine] {
+  async getMeasurements(): [MeasurementLine] {
     const handle = findNodeHandle(this._ref.current);
-    if(handle){
+    if (handle) {
       return await ZarMeasureModule.getMeasurements(handle);
     }
     return [];
@@ -485,10 +528,19 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    *
    * strict: same as strictPlanes, only get walls, ceilings, and floors.
    */
-  async getPlanes(minDimension=0, alignment='all', strict=false) : [ARPlane] {
+  async getPlanes(
+    minDimension = 0,
+    alignment = 'all',
+    strict = false,
+  ): [ARPlane] {
     const handle = findNodeHandle(this._ref.current);
-    if(handle){
-      return await ZarMeasureModule.getPlanes(handle, minDimension, alignment, strict);
+    if (handle) {
+      return await ZarMeasureModule.getPlanes(
+        handle,
+        minDimension,
+        alignment,
+        strict,
+      );
     }
     return [];
   }
@@ -499,12 +551,12 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    * where measurements are in the 2D coordinate of the image (0,0 is top left).
    * Only those nodes which are in the picture are returned.
    */
-  async takePicture(path) : {error: string, measurements: [MeasurementLine2D]} {
+  async takePicture(path): {error: string, measurements: [MeasurementLine2D]} {
     const handle = findNodeHandle(this._ref.current);
-    if(handle){
+    if (handle) {
       return await ZarMeasureModule.takePicture(handle, path);
     }
-    return {error: "View not available"};
+    return {error: 'View not available'};
   }
 
   /**
@@ -514,12 +566,12 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    * Note: not supported with geometry mode: unknown crash from Apple source code.
    *
    */
-  async saveToFile(path) : {error: string} {
+  async saveToFile(path): {error: string} {
     const handle = findNodeHandle(this._ref.current);
-    if(handle){
+    if (handle) {
       return await ZarMeasureModule.saveToFile(handle, path);
     }
-    return {error: "View not available"};
+    return {error: 'View not available'};
   }
 
   /**
@@ -532,19 +584,18 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
    * NOTE: Work in progress, it always opens through the camera first, which is annoying and
    * oposed to Apple's docs from ARQuickLookPreviewItem. Need a real viewer.
    * */
-  static async showPreview(path){
+  static async showPreview(path) {
     return await ZarMeasureModule.showPreview(path);
   }
 
   // ------------------------------------------------
 
-
-  constructor(props){
+  constructor(props) {
     super(props);
     this.state = {
       authorized: false,
-      authChecked: false
-    }
+      authChecked: false,
+    };
 
     this._ref = React.createRef();
     this.requestPermissions = this.requestPermissions.bind(this);
@@ -552,31 +603,29 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
     this.addPoint = this.addPoint.bind(this);
   }
 
-
-  async componentDidMount(){
+  async componentDidMount() {
     this._mounted = true;
     const granted = await this.requestPermissions();
 
-    if(this._mounted){
+    if (this._mounted) {
       this.onCameraStatusChange && this.onCameraStatusChange(granted);
       this.setState({
         authorized: granted,
-        authChecked: true
+        authChecked: true,
       });
     }
   }
 
-  componentWillUnmount(){
+  componentWillUnmount() {
     this._mounted = false;
   }
 
-  async requestPermissions(){
+  async requestPermissions() {
     let permGranted = false;
 
     if (Platform.OS === 'ios') {
       permGranted = await ZarMeasureModule.checkVideoAuthorizationStatus();
-    }
-    else if (Platform.OS === 'android') {
+    } else if (Platform.OS === 'android') {
       const cameraPermissionResult = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.CAMERA,
         this.props.androidCameraPermissionOptions,
@@ -585,11 +634,11 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
       if (typeof cameraPermissionResult === 'boolean') {
         permGranted = cameraPermissionResult;
       } else {
-        permGranted = cameraPermissionResult === PermissionsAndroid.RESULTS.GRANTED;
+        permGranted =
+          cameraPermissionResult === PermissionsAndroid.RESULTS.GRANTED;
       }
-    }
-    else {
-      throw new Error("Platform not supported.");
+    } else {
+      throw new Error('Platform not supported.');
     }
 
     return permGranted;
@@ -597,31 +646,32 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
 
   onARStatusChange = (evt) => {
     this.props.onARStatusChange && this.props.onARStatusChange(evt.nativeEvent);
-  }
+  };
 
   onMeasuringStatusChange = (evt) => {
-    this.props.onMeasuringStatusChange && this.props.onMeasuringStatusChange(evt.nativeEvent);
-  }
+    this.props.onMeasuringStatusChange &&
+      this.props.onMeasuringStatusChange(evt.nativeEvent);
+  };
 
   onMountError = (evt) => {
     this.props.onMountError && this.props.onMountError(evt.nativeEvent);
-  }
+  };
 
   onTextTap = (evt) => {
-    this.props.onTextTap && this.props.onTextTap(evt.nativeEvent)
-  }
+    this.props.onTextTap && this.props.onTextTap(evt.nativeEvent);
+  };
 
   onPlaneTap = (evt) => {
-    this.props.onPlaneTap && this.props.onPlaneTap(evt.nativeEvent)
-  }
+    this.props.onPlaneTap && this.props.onPlaneTap(evt.nativeEvent);
+  };
 
-  render(){
+  render() {
     let {authChecked, authorized} = this.state;
 
-    if(!authChecked){
+    if (!authChecked) {
       return this.props.pendingAuthorizationView;
     }
-    if(!authorized){
+    if (!authorized) {
       return this.props.notAuthorizedView;
     }
 
@@ -648,11 +698,14 @@ export default class ZarMeasureView extends React.Component<ZarMeasureViewProps>
         onTextTap={onTextTap ? this.onTextTap : undefined}
         onPlaneTap={onPlaneTap ? this.onPlaneTap : undefined}
       />
-    )
+    );
   }
 }
 
-const NativeZarMeasureView = requireNativeComponent("ZarMeasureView", ZarMeasureView, {
-  nativeOnly: {
-  }
-});
+const NativeZarMeasureView = requireNativeComponent(
+  'ZarMeasureView',
+  ZarMeasureView,
+  {
+    nativeOnly: {},
+  },
+);
