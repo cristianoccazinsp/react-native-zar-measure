@@ -15,7 +15,7 @@ type ZarMeasureViewProps = {
   /** Android permissions rationale */
   androidCameraPermissionOptions: {
     title: string,
-    message: striing,
+    message: string,
     buttonPositive: string,
     buttonNegative: string
   },
