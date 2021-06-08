@@ -16,3 +16,7 @@ Work in progress... Not going to be publicly released as it is for personal use 
 
 - Sample app:
   - Would be good to have, but currently only tested internally with an existing project.
+
+
+# VSCode
+  Set "javascript.validate.enable": false to workspace so it does not interfere with eslint/flow
