@@ -209,7 +209,7 @@ type MeasurementLine = {
   planeId: string, // if it was added as part of an add plane operation
   node1: MeasurementNode,
   node2: MeasurementNode,
-  label: String, // text node label
+  label: string, // text node label
   distance: number, // in meters
 };
 
@@ -218,7 +218,7 @@ type MeasurementLine2D = {
   planeId: string, // if it was added as part of an add plane operation
   node1: MeasurementNode,
   node2: MeasurementNode,
-  label: String, // text node label
+  label: string, // text node label
   bounds: {width: number, height: number}, // image bounds
   distance: number, // in meters in 3rd world
 };
